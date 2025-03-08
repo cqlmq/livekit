@@ -37,73 +37,118 @@ import (
 	"github.com/livekit/livekit-server/version"
 )
 
+// baseFlags 定义了基本的命令行参数
+// Base command line flags for the server
 var baseFlags = []cli.Flag{
+	// 绑定地址参数：指定服务器要监听的IP地址
+	// Bind addresses: specify IP addresses for the server to listen on
 	&cli.StringSliceFlag{
 		Name:  "bind",
 		Usage: "IP address to listen on, use flag multiple times to specify multiple addresses",
 	},
+
+	// 配置文件路径参数
+	// Path to configuration file
 	&cli.StringFlag{
 		Name:  "config",
 		Usage: "path to LiveKit config file",
 	},
+
+	// YAML格式的配置内容，通常通过环境变量传入容器
+	// Configuration content in YAML format, typically passed as environment variable in container
 	&cli.StringFlag{
 		Name:    "config-body",
 		Usage:   "LiveKit config in YAML, typically passed in as an environment var in a container",
 		EnvVars: []string{"LIVEKIT_CONFIG"},
 	},
+
+	// 密钥文件路径参数
+	// Path to file that contains API keys/secrets
 	&cli.StringFlag{
 		Name:  "key-file",
 		Usage: "path to file that contains API keys/secrets",
 	},
+
+	// API密钥参数
+	// API keys (key: secret\n)
 	&cli.StringFlag{
 		Name:    "keys",
-		Usage:   "api keys (key: secret\\n)",
+		Usage:   "api keys (key: secret\n)",
 		EnvVars: []string{"LIVEKIT_KEYS"},
 	},
+
+	// 区域参数
+	// Region of the current node. Used by regionaware node selector
 	&cli.StringFlag{
 		Name:    "region",
 		Usage:   "region of the current node. Used by regionaware node selector",
 		EnvVars: []string{"LIVEKIT_REGION"},
 	},
+
+	// 节点IP参数
+	// IP address of the current node, used to advertise to clients. Automatically determined by default
 	&cli.StringFlag{
 		Name:    "node-ip",
 		Usage:   "IP address of the current node, used to advertise to clients. Automatically determined by default",
 		EnvVars: []string{"NODE_IP"},
 	},
+
+	// UDP端口参数
+	// UDP port(s) to use for WebRTC traffic
 	&cli.StringFlag{
 		Name:    "udp-port",
 		Usage:   "UDP port(s) to use for WebRTC traffic",
 		EnvVars: []string{"UDP_PORT"},
 	},
+
+	// Redis主机参数
+	// host (incl. port) to redis server
 	&cli.StringFlag{
 		Name:    "redis-host",
 		Usage:   "host (incl. port) to redis server",
 		EnvVars: []string{"REDIS_HOST"},
 	},
+
+	// Redis密码参数
+	// password to redis
 	&cli.StringFlag{
 		Name:    "redis-password",
 		Usage:   "password to redis",
 		EnvVars: []string{"REDIS_PASSWORD"},
 	},
+
+	// TURN服务器证书文件参数
+	// tls cert file for TURN server
 	&cli.StringFlag{
 		Name:    "turn-cert",
 		Usage:   "tls cert file for TURN server",
 		EnvVars: []string{"LIVEKIT_TURN_CERT"},
 	},
+
+	// TURN服务器密钥文件参数
+	// tls key file for TURN server
 	&cli.StringFlag{
 		Name:    "turn-key",
 		Usage:   "tls key file for TURN server",
 		EnvVars: []string{"LIVEKIT_TURN_KEY"},
 	},
-	// debugging flags
+
+	// 内存分析参数
+	// Memory profile to write to `file`
 	&cli.StringFlag{
 		Name:  "memprofile",
 		Usage: "write memory profile to `file`",
 	},
+
+	// 开发模式参数
+	// sets log-level to debug, console formatter, and /debug/pprof. insecure for production
 	&cli.BoolFlag{
 		Name:  "dev",
 		Usage: "sets log-level to debug, console formatter, and /debug/pprof. insecure for production",
 	},
+
+	// 严格配置解析参数
+	// disables strict config parsing
 	&cli.BoolFlag{
 		Name:   "disable-strict-config",
 		Usage:  "disables strict config parsing",
@@ -111,34 +156,48 @@ var baseFlags = []cli.Flag{
 	},
 }
 
+// init 初始化函数，设置随机数种子
+// Initialize function, sets random seed
 func init() {
 	rand.Seed(time.Now().Unix())
 }
 
+// main 程序入口函数
+// Main entry point of the server
 func main() {
+	// 设置延迟执行的错误恢复函数
+	// Set up deferred error recovery function
 	defer func() {
 		if rtc.Recover(logger.GetLogger()) != nil {
 			os.Exit(1)
 		}
 	}()
 
+	// 生成CLI标志（命令行参数）
+	// Generate CLI flags
 	generatedFlags, err := config.GenerateCLIFlags(baseFlags, true)
 	if err != nil {
 		fmt.Println(err)
 	}
 
+	// 创建CLI应用程序
+	// Create CLI application
 	app := &cli.App{
 		Name:        "livekit-server",
 		Usage:       "High performance WebRTC server",
 		Description: "run without subcommands to start the server",
 		Flags:       append(baseFlags, generatedFlags...),
-		Action:      startServer,
+		Action:      startServer, // 默认动作是启动服务器 / Default action is to start the server
 		Commands: []*cli.Command{
+			// 生成API密钥对
+			// Generate API key pair
 			{
 				Name:   "generate-keys",
 				Usage:  "generates an API key and secret pair",
 				Action: generateKeys,
 			},
+			// 打印服务器配置的端口
+			// Print ports that server is configured to use
 			{
 				Name:   "ports",
 				Usage:  "print ports that server is configured to use",
@@ -182,31 +241,48 @@ func main() {
 		Version: version.Version,
 	}
 
+	// 运行应用程序
+	// Run the application
 	if err := app.Run(os.Args); err != nil {
 		fmt.Println(err)
 	}
 }
 
+// getConfig 从命令行参数获取配置
+// Get configuration from command line arguments
 func getConfig(c *cli.Context) (*config.Config, error) {
+	// 获取配置字符串
+	// Get configuration string
 	confString, err := getConfigString(c.String("config"), c.String("config-body"))
 	if err != nil {
 		return nil, err
 	}
 
+	// 设置配置解析模式
+	// Set configuration parsing mode
 	strictMode := true
 	if c.Bool("disable-strict-config") {
 		strictMode = false
 	}
 
+	// 创建新的配置对象
+	// Create new configuration object
 	conf, err := config.NewConfig(confString, strictMode, c, baseFlags)
 	if err != nil {
 		return nil, err
 	}
+
+	// 初始化日志配置
+	// Initialize logger configuration
 	config.InitLoggerFromConfig(&conf.Logging)
 
+	// 开发模式特殊处理
+	// Special handling for development mode
 	if conf.Development {
 		logger.Infow("starting in development mode")
 
+		// 如果没有提供API密钥，使用默认密钥
+		// Use default keys if no API keys provided
 		if len(conf.Keys) == 0 {
 			logger.Infow("no keys provided, using placeholder keys",
 				"API Key", "devkey",
@@ -242,13 +318,18 @@ func getConfig(c *cli.Context) (*config.Config, error) {
 	return conf, nil
 }
 
+// startServer 启动服务器的主函数
+// Main function to start the server
 func startServer(c *cli.Context) error {
+	// 获取配置
+	// Get configuration
 	conf, err := getConfig(c)
 	if err != nil {
 		return err
 	}
 
-	// validate API key length
+	// 验证API密钥长度
+	// Validate API key length
 	err = conf.ValidateKeys()
 	if err != nil {
 		return err
@@ -267,23 +348,33 @@ func startServer(c *cli.Context) error {
 		}
 	}
 
+	// 创建本地节点
+	// Create local node
 	currentNode, err := routing.NewLocalNode(conf)
 	if err != nil {
 		return err
 	}
 
+	// 初始化Prometheus监控
+	// Initialize Prometheus monitoring
 	if err := prometheus.Init(string(currentNode.NodeID()), currentNode.NodeType()); err != nil {
 		return err
 	}
 
+	// 初始化服务器
+	// Initialize server
 	server, err := service.InitializeServer(conf, currentNode)
 	if err != nil {
 		return err
 	}
 
+	// 设置信号处理
+	// Set up signal handling
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
+	// 启动信号处理协程
+	// Start signal handling goroutine
 	go func() {
 		for i := 0; i < 2; i++ {
 			sig := <-sigChan
@@ -293,6 +384,8 @@ func startServer(c *cli.Context) error {
 		}
 	}()
 
+	// 启动服务器
+	// Start the server
 	return server.Start()
 }
 
