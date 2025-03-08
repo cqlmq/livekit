@@ -8,6 +8,22 @@
 
 <!--END_BANNER_IMAGE-->
 
+# git 相关命令
+## git pull upstream master 拉取上游分支
+## git push origin master 推送到远程分支
+
+## git fetch upstream 拉取上游分支
+## git merge upstream/main 合并上游分支
+
+# 切换分支
+## git checkout origin/master 切换到远程分支
+# 查看本地分支
+## git branch -a 查看本地分支
+
+# 查看状态 
+git status
+
+
 # LiveKit: Real-time video, audio and data for developers (cqlmq)
 
 [LiveKit](https://livekit.io) is an open source project that provides scalable, multi-user conferencing based on WebRTC.
