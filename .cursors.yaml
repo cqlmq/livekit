@@ -1,0 +1,252 @@
+version: 1.0
+
+# 项目基本信息
+project:
+  name: "livekit-server"
+  description: "LiveKit WebRTC SFU服务器"
+  repository: "github.com/livekit/livekit-server"
+
+# 文件路径配置
+paths:
+  core:
+    - cmd/server/commands.go
+    - cmd/server/main.go
+    - pkg/config/config.go
+  config:
+    - bin/config.yaml
+  docs:
+    - README.md
+    - CHANGELOG.md
+    - LICENSE
+  scripts:
+    - bootstrap.sh
+
+# 规则配置
+rules:
+  # 文件修改规则
+  file_patterns:
+    - "*.go"
+    - "*.yaml"
+    - "*.md"
+    - "*.sh"
+  
+  # 忽略的文件和目录
+  ignore_patterns:
+    - "*.test.go"
+    - "vendor/"
+    - "node_modules/"
+    - ".git/"
+    - "*.sum"
+    - "*.mod"
+    - "*.log"
+
+  # 注释标记
+  markers:
+    todo: "// TODO:"
+    note: "// NOTE:"
+    review: "// REVIEW:"
+    study: "// STUDY:"
+    important: "// IMPORTANT:"
+    fix: "// FIX:"
+    debug: "// DEBUG:"
+
+# 学习追踪
+tracking:
+  # 当前学习状态
+  current_file: "cmd/server/commands.go"
+  status: "in_progress"
+  last_updated: "2024-03-21"
+  
+  # 文件优先级
+  priority:
+    critical:
+      - "cmd/server/main.go"
+    high:
+      - "pkg/config/config.go"
+      - "cmd/server/commands.go"
+    medium:
+      - "bin/config.yaml"
+      - "README.md"
+    low:
+      - "CHANGELOG.md"
+      - "LICENSE"
+
+  # 理解程度定义
+  understanding_levels:
+    not_started:
+      description: "尚未开始阅读"
+      color: "gray"
+    reading:
+      description: "正在阅读和理解中"
+      color: "blue"
+    understood:
+      description: "基本理解代码逻辑"
+      color: "green"
+    mastered:
+      description: "完全掌握并能修改"
+      color: "purple"
+
+  # 学习计划
+  learning_phases:
+    - phase: "基础概念"
+      status: "in_progress"
+      files:
+        - "README.md"
+        - "bin/config.yaml"
+    - phase: "核心功能"
+      status: "not_started"
+      files:
+        - "cmd/server/main.go"
+        - "cmd/server/commands.go"
+    - phase: "配置系统"
+      status: "not_started"
+      files:
+        - "pkg/config/config.go"
+
+# 代码审查配置
+review:
+  focus_areas:
+    - "错误处理"
+    - "并发控制"
+    - "性能优化"
+    - "安全检查"
+  
+  complexity_levels:
+    low: "简单的功能代码"
+    medium: "包含业务逻辑"
+    high: "核心算法或并发处理"
+
+# 标签系统
+tags:
+  code_quality:
+    - "需要重构"
+    - "性能敏感"
+    - "待优化"
+    - "已优化"
+  functionality:
+    - "核心功能"
+    - "辅助功能"
+    - "测试代码"
+  status:
+    - "待实现"
+    - "开发中"
+    - "已完成"
+    - "已测试"
+
+# 注释模板
+comment_templates:
+  function_doc: |
+    // {function_name} {description}
+    // 参数:
+    //   - {param}: {param_description}
+    // 返回:
+    //   - {return}: {return_description}
+  section_doc: |
+    // =====================================
+    // {section_name}
+    // {description}
+    // ===================================== 
+
+# 学习目标和需求
+learning_objectives:
+  goals:
+    - "快速掌握LiveKit核心功能"
+    - "理解WebRTC在LiveKit中的应用"
+    - "能够进行二次开发"
+  
+  assistance_needed:
+    - type: "规划指导"
+      description: "提供系统化的学习路线图"
+      priority: "high"
+    
+    - type: "代码注释"
+      description: "为关键代码添加中文注释"
+      priority: "high"
+    
+    - type: "难度评估"
+      description: "评估各模块的学习难度"
+      priority: "medium"
+    
+    - type: "学习资料"
+      description: "提供相关技术文档和教程"
+      priority: "high"
+
+# 学习资源
+learning_resources:
+  documentation:
+    - name: "LiveKit官方文档"
+      url: "https://docs.livekit.io/"
+      priority: "high"
+    - name: "WebRTC指南"
+      url: "https://webrtc.org/getting-started/overview"
+      priority: "medium"
+  
+  books:
+    - "WebRTC权威指南"
+    - "Go语言实战"
+    - "分布式系统设计模式"
+
+  tutorials:
+    - "LiveKit快速入门"
+    - "WebRTC基础教程"
+    - "Go并发编程"
+
+# 难度评估
+difficulty_assessment:
+  overall: "中高等"
+  estimated_time: "3-4周"
+  prerequisites:
+    - skill: "Go语言"
+      level: "中级"
+    - skill: "WebRTC"
+      level: "基础"
+    - skill: "网络编程"
+      level: "中级"
+
+  module_difficulty:
+    config_system:
+      level: "低"
+      estimated_days: 2
+    signaling_server:
+      level: "中"
+      estimated_days: 5
+    media_server:
+      level: "高"
+      estimated_days: 10
+    room_management:
+      level: "中"
+      estimated_days: 5
+
+# 交流规则
+communication_rules:
+  file_sharing:
+    - use: "<open_file>"
+      description: "分享需要讨论的代码文件"
+    - use: "<question>"
+      description: "提出具体问题"
+    - use: "<task>"
+      description: "描述具体任务"
+  
+  response_format:
+    - "使用markdown格式"
+    - "代码示例需包含注释"
+    - "关键点需要重点标注"
+
+# 进度追踪
+progress_tracking:
+  current_phase: "基础概念学习"
+  completed_items: []
+  next_steps:
+    - "阅读README.md"
+    - "理解项目结构"
+    - "分析配置系统"
+  
+  milestones:
+    - name: "环境搭建"
+      status: "not_started"
+    - name: "基础概念"
+      status: "in_progress"
+    - name: "核心功能"
+      status: "not_started"
+    - name: "实践应用"
+      status: "not_started" 
