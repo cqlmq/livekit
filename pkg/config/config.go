@@ -48,6 +48,8 @@ var (
 	ErrKeysNotSet                 = errors.New("one of key-file or keys must be provided")
 )
 
+// Config 定义了 LiveKit 服务器的所有配置选项
+// Config represents all configuration options for the LiveKit server
 type Config struct {
 	Port          uint32   `yaml:"port,omitempty"`
 	BindAddresses []string `yaml:"bind_addresses,omitempty"`
@@ -79,6 +81,8 @@ type Config struct {
 	Metric metric.MetricConfig `yaml:"metric,omitempty"`
 }
 
+// RTCConfig 定义了 WebRTC 相关的配置
+// RTCConfig defines WebRTC related configuration
 type RTCConfig struct {
 	rtcconfig.RTCConfig `yaml:",inline"`
 
@@ -97,6 +101,7 @@ type RTCConfig struct {
 	// Throttle periods for pli/fir rtcp packets
 	PLIThrottle sfu.PLIThrottleConfig `yaml:"pli_throttle,omitempty"`
 
+	// Congestion control configuration
 	CongestionControl CongestionControlConfig `yaml:"congestion_control,omitempty"`
 
 	// allow TCP and TURN/TLS fallback
@@ -129,6 +134,8 @@ type TURNServer struct {
 	Credential string `yaml:"credential,omitempty"`
 }
 
+// CongestionControlConfig 定义了拥塞控制配置
+// CongestionControlConfig defines congestion control configuration
 type CongestionControlConfig struct {
 	Enabled    bool `yaml:"enabled,omitempty"`
 	AllowPause bool `yaml:"allow_pause,omitempty"`
@@ -155,7 +162,8 @@ type VideoConfig struct {
 }
 
 type RoomConfig struct {
-	// enable rooms to be automatically created
+	// 是否允许自动创建房间
+	// Enable automatic room creation
 	AutoCreate         bool               `yaml:"auto_create,omitempty"`
 	EnabledCodecs      []CodecSpec        `yaml:"enabled_codecs,omitempty"`
 	MaxParticipants    uint32             `yaml:"max_participants,omitempty"`
@@ -181,11 +189,15 @@ type CodecSpec struct {
 	FmtpLine string `yaml:"fmtp_line,omitempty"`
 }
 
+// LoggingConfig 定义了日志配置
+// LoggingConfig defines logging configuration
 type LoggingConfig struct {
 	logger.Config `yaml:",inline"`
 	PionLevel     string `yaml:"pion_level,omitempty"`
 }
 
+// TURNConfig 定义了 TURN 服务器配置
+// TURNConfig defines TURN server configuration
 type TURNConfig struct {
 	Enabled             bool   `yaml:"enabled,omitempty"`
 	Domain              string `yaml:"domain,omitempty"`
@@ -228,31 +240,41 @@ type RegionConfig struct {
 	Lon  float64 `yaml:"lon,omitempty"`
 }
 
+// LimitConfig 定义了限制配置
+// LimitConfig defines limit configuration
 type LimitConfig struct {
-	NumTracks              int32   `yaml:"num_tracks,omitempty"`
-	BytesPerSec            float32 `yaml:"bytes_per_sec,omitempty"`
-	SubscriptionLimitVideo int32   `yaml:"subscription_limit_video,omitempty"`
-	SubscriptionLimitAudio int32   `yaml:"subscription_limit_audio,omitempty"`
-	MaxMetadataSize        uint32  `yaml:"max_metadata_size,omitempty"`
+	NumTracks              int32   `yaml:"num_tracks,omitempty"`               // 最大允许的轨道数量
+	BytesPerSec            float32 `yaml:"bytes_per_sec,omitempty"`            // 每秒允许的最大字节数
+	SubscriptionLimitVideo int32   `yaml:"subscription_limit_video,omitempty"` // 最大允许的视频订阅数量
+	SubscriptionLimitAudio int32   `yaml:"subscription_limit_audio,omitempty"` // 最大允许的音频订阅数量
+	MaxMetadataSize        uint32  `yaml:"max_metadata_size,omitempty"`        // 最大允许的元数据大小
 	// total size of all attributes on a participant
-	MaxAttributesSize            uint32 `yaml:"max_attributes_size,omitempty"`
-	MaxRoomNameLength            int    `yaml:"max_room_name_length,omitempty"`
-	MaxParticipantIdentityLength int    `yaml:"max_participant_identity_length,omitempty"`
-	MaxParticipantNameLength     int    `yaml:"max_participant_name_length,omitempty"`
+	MaxAttributesSize            uint32 `yaml:"max_attributes_size,omitempty"`             // 最大允许的属性大小
+	MaxRoomNameLength            int    `yaml:"max_room_name_length,omitempty"`            // 最大允许的房间名称长度
+	MaxParticipantIdentityLength int    `yaml:"max_participant_identity_length,omitempty"` // 最大允许的参与者标识长度
+	MaxParticipantNameLength     int    `yaml:"max_participant_name_length,omitempty"`     // 最大允许的参与者名称长度
 }
 
+// CheckRoomNameLength 检查房间名称长度是否符合限制
+// CheckRoomNameLength checks if the room name length is within the limit
 func (l LimitConfig) CheckRoomNameLength(name string) bool {
 	return l.MaxRoomNameLength == 0 || len(name) <= l.MaxRoomNameLength
 }
 
+// CheckParticipantNameLength 检查参与者名称长度是否符合限制
+// CheckParticipantNameLength checks if the participant name length is within the limit
 func (l LimitConfig) CheckParticipantNameLength(name string) bool {
 	return l.MaxParticipantNameLength == 0 || len(name) <= l.MaxParticipantNameLength
 }
 
+// CheckMetadataSize 检查元数据大小是否符合限制
+// CheckMetadataSize checks if the metadata size is within the limit
 func (l LimitConfig) CheckMetadataSize(metadata string) bool {
 	return l.MaxMetadataSize == 0 || uint32(len(metadata)) <= l.MaxMetadataSize
 }
 
+// CheckAttributesSize 检查属性大小是否符合限制
+// CheckAttributesSize checks if the attributes size is within the limit
 func (l LimitConfig) CheckAttributesSize(attributes map[string]string) bool {
 	if l.MaxAttributesSize == 0 {
 		return true
@@ -265,9 +287,11 @@ func (l LimitConfig) CheckAttributesSize(attributes map[string]string) bool {
 	return uint32(total) <= l.MaxAttributesSize
 }
 
+// IngressConfig 定义了入口配置
+// IngressConfig defines ingress configuration
 type IngressConfig struct {
-	RTMPBaseURL string `yaml:"rtmp_base_url,omitempty"`
-	WHIPBaseURL string `yaml:"whip_base_url,omitempty"`
+	RTMPBaseURL string `yaml:"rtmp_base_url,omitempty"` // RTMP 基础 URL
+	WHIPBaseURL string `yaml:"whip_base_url,omitempty"` // WHIP 基础 URL
 }
 
 type SIPConfig struct{}
@@ -283,18 +307,24 @@ type APIConfig struct {
 	MaxCheckInterval time.Duration `yaml:"max_check_interval,omitempty"`
 }
 
+// PrometheusConfig 定义了 Prometheus 配置
+// PrometheusConfig defines Prometheus configuration
 type PrometheusConfig struct {
 	Port     uint32 `yaml:"port,omitempty"`
 	Username string `yaml:"username,omitempty"`
 	Password string `yaml:"password,omitempty"`
 }
 
+// ForwardStatsConfig 定义了转发统计配置
+// ForwardStatsConfig defines forward stats configuration
 type ForwardStatsConfig struct {
-	SummaryInterval time.Duration `yaml:"summary_interval,omitempty"`
-	ReportInterval  time.Duration `yaml:"report_interval,omitempty"`
-	ReportWindow    time.Duration `yaml:"report_window,omitempty"`
+	SummaryInterval time.Duration `yaml:"summary_interval,omitempty"` // 汇总间隔
+	ReportInterval  time.Duration `yaml:"report_interval,omitempty"`  // 报告间隔
+	ReportWindow    time.Duration `yaml:"report_window,omitempty"`    // 报告窗口
 }
 
+// DefaultAPIConfig 返回默认的 API 配置
+// DefaultAPIConfig returns default API configuration
 func DefaultAPIConfig() APIConfig {
 	return APIConfig{
 		ExecutionTimeout: 2 * time.Second,
@@ -303,6 +333,8 @@ func DefaultAPIConfig() APIConfig {
 	}
 }
 
+// DefaultConfig 返回默认的配置
+// DefaultConfig returns default configuration
 var DefaultConfig = Config{
 	Port: 7880,
 	RTC: RTCConfig{
@@ -381,8 +413,14 @@ var DefaultConfig = Config{
 	Metric: metric.DefaultMetricConfig,
 }
 
+// NewConfig 创建并初始化配置对象
+// NewConfig creates and initializes a configuration object
+// 从默认配置开始, 根据命令行参数和配置文件进行更新
+// 优先级：命令行参数 > 配置文件 > 默认配置
+// Priority: command line arguments > config file > default configuration
 func NewConfig(confString string, strictMode bool, c *cli.Context, baseFlags []cli.Flag) (*Config, error) {
-	// start with defaults
+	// 从默认配置开始，采用yaml序列化，然后反序列化，从而创建一个全新的配置对象
+	// Start with default configuration, marshal to yaml, then unmarshal to create a new configuration object
 	marshalled, err := yaml.Marshal(&DefaultConfig)
 	if err != nil {
 		return nil, err
@@ -394,25 +432,32 @@ func NewConfig(confString string, strictMode bool, c *cli.Context, baseFlags []c
 		return nil, err
 	}
 
+	// 如果配置字符串不为空，则从配置字符串中解析配置
 	if confString != "" {
 		decoder := yaml.NewDecoder(strings.NewReader(confString))
-		decoder.KnownFields(strictMode)
+		decoder.KnownFields(strictMode) // 用于控制 YAML 解析器对未知字段的处理方式, 如果 strictMode 为 true, 则 YAML 解析器会拒绝未知字段
 		if err := decoder.Decode(&conf); err != nil {
 			return nil, fmt.Errorf("could not parse config: %v", err)
 		}
 	}
 
+	// 如果命令行参数不为空，则从命令行参数中更新配置
 	if c != nil {
 		if err := conf.updateFromCLI(c, baseFlags); err != nil {
 			return nil, err
 		}
 	}
 
+	// 验证 RTC 配置
+	// 在 Validate 方法中，会根据 development 参数设置默认值， 比如可以获取到NodeIP
+	// st := time.Now()
 	if err := conf.RTC.Validate(conf.Development); err != nil {
 		return nil, fmt.Errorf("could not validate RTC config: %v", err)
 	}
+	// 暂时还不能使用logger, 因为logger 还没有初始化
+	// fmt.Println("测试信息: conf.RTC.Validate", time.Since(st), "nodeIP", conf.RTC.NodeIP)
 
-	// expand env vars in filenames
+	// 扩展环境变量, 扩展 ~ 路径符号
 	file, err := homedir.Expand(os.ExpandEnv(conf.KeyFile))
 	if err != nil {
 		return nil, err
@@ -422,6 +467,8 @@ func NewConfig(confString string, strictMode bool, c *cli.Context, baseFlags []c
 	// set defaults for Turn relay if none are set
 	if conf.TURN.RelayPortRangeStart == 0 || conf.TURN.RelayPortRangeEnd == 0 {
 		// to make it easier to run in dev mode/docker, default to two ports
+		// 如果开发模式为true, 则默认使用30000-30002端口 便于监测
+		// 如果开发模式为false, 则默认使用30000-40000端口 适合生产环境
 		if conf.Development {
 			conf.TURN.RelayPortRangeStart = 30000
 			conf.TURN.RelayPortRangeEnd = 30002
@@ -431,12 +478,15 @@ func NewConfig(confString string, strictMode bool, c *cli.Context, baseFlags []c
 		}
 	}
 
+	// 如果日志级别不为空, 则使用日志级别
 	if conf.LogLevel != "" {
 		conf.Logging.Level = conf.LogLevel
 	}
+	// 如果日志级别为空, 并且开发模式为true, 则默认使用debug级别
 	if conf.Logging.Level == "" && conf.Development {
 		conf.Logging.Level = "debug"
 	}
+	// 如果pion日志级别不为空, 则使用pion日志级别
 	if conf.Logging.PionLevel != "" {
 		if conf.Logging.ComponentLevels == nil {
 			conf.Logging.ComponentLevels = map[string]string{}
@@ -446,12 +496,15 @@ func NewConfig(confString string, strictMode bool, c *cli.Context, baseFlags []c
 	}
 
 	// copy over legacy limits
+	// 如果房间最大元数据大小不为0, 则使用房间最大元数据大小
 	if conf.Room.MaxMetadataSize != 0 {
 		conf.Limit.MaxMetadataSize = conf.Room.MaxMetadataSize
 	}
+	// 如果房间最大参与者标识长度不为0, 则使用房间最大参与者标识长度
 	if conf.Room.MaxParticipantIdentityLength != 0 {
 		conf.Limit.MaxParticipantIdentityLength = conf.Room.MaxParticipantIdentityLength
 	}
+	// 如果房间最大房间名称长度不为0, 则使用房间最大房间名称长度
 	if conf.Room.MaxRoomNameLength != 0 {
 		conf.Limit.MaxRoomNameLength = conf.Room.MaxRoomNameLength
 	}
@@ -476,6 +529,14 @@ type configNode struct {
 	TagPrefix string
 }
 
+// ToCLIFlagNames 将配置转换为命令行参数名称
+// ToCLIFlagNames converts configuration to command line argument names
+// 将配置转换为命令行参数名称
+// 遍历配置的每个字段，获取yaml标签的名称，如果yaml标签的名称不为空，则将yaml标签的名称作为命令行参数的名称
+// 如果yaml标签的名称为空，则将字段名称作为命令行参数的名称
+// 如果yaml标签的名称为-，则跳过该字段
+// 如果yaml标签的名称为inline，则将字段名称作为命令行参数的名称
+// 跳过existingFlags中已经存在的命令行参数名称
 func (conf *Config) ToCLIFlagNames(existingFlags []cli.Flag) map[string]reflect.Value {
 	existingFlagNames := map[string]bool{}
 	for _, flag := range existingFlags {
@@ -493,7 +554,7 @@ func (conf *Config) ToCLIFlagNames(existingFlags []cli.Flag) map[string]reflect.
 			// inspect yaml tag from struct field to get path
 			field := currNode.TypeNode.Type().Field(i)
 			yamlTagArray := strings.SplitN(field.Tag.Get("yaml"), ",", 2)
-			yamlTag := yamlTagArray[0]
+			yamlTag := yamlTagArray[0] // 获取yaml标签的名称
 			isInline := false
 			if len(yamlTagArray) > 1 && yamlTagArray[1] == "inline" {
 				isInline = true
@@ -563,6 +624,8 @@ func (conf *Config) ValidateKeys() error {
 	return nil
 }
 
+// GenerateCLIFlags 生成命令行参数
+// GenerateCLIFlags generates command line arguments
 func GenerateCLIFlags(existingFlags []cli.Flag, hidden bool) ([]cli.Flag, error) {
 	blankConfig := &Config{}
 	flags := make([]cli.Flag, 0)
@@ -651,16 +714,20 @@ func GenerateCLIFlags(existingFlags []cli.Flag, hidden bool) ([]cli.Flag, error)
 	return flags, nil
 }
 
+// updateFromCLI 从命令行参数中更新配置
+// updateFromCLI updates configuration from command line arguments
 func (conf *Config) updateFromCLI(c *cli.Context, baseFlags []cli.Flag) error {
 	generatedFlagNames := conf.ToCLIFlagNames(baseFlags)
 	for _, flag := range c.App.Flags {
-		flagName := flag.Names()[0]
+		flagName := flag.Names()[0] // 获取命令行参数的名称
 
+		// 如果命令行参数未设置，并且不是在单元测试中，则跳过
 		// the `c.App.Name != "test"` check is needed because `c.IsSet(...)` is always false in unit tests
 		if !c.IsSet(flagName) && c.App.Name != "test" {
 			continue
 		}
 
+		// 获取命令行参数的值
 		configValue, ok := generatedFlagNames[flagName]
 		if !ok {
 			continue
@@ -735,6 +802,8 @@ func (conf *Config) updateFromCLI(c *cli.Context, baseFlags []cli.Flag) error {
 	return nil
 }
 
+// unmarshalKeys 将密钥字符串反序列化为map[string]string
+// unmarshalKeys unmarshals the keys string into a map[string]string
 func (conf *Config) unmarshalKeys(keys string) error {
 	temp := make(map[string]interface{})
 	if err := yaml.Unmarshal([]byte(keys), temp); err != nil {

@@ -73,7 +73,7 @@ var baseFlags = []cli.Flag{
 	// API keys (key: secret\n)
 	&cli.StringFlag{
 		Name:    "keys",
-		Usage:   "api keys (key: secret\n)",
+		Usage:   "api keys (key: secret)",
 		EnvVars: []string{"LIVEKIT_KEYS"},
 	},
 
@@ -389,6 +389,12 @@ func startServer(c *cli.Context) error {
 	return server.Start()
 }
 
+// getConfigString 获取配置字符串
+// Get configuration string
+// 从配置文件或配置体中获取配置字符串
+// Get configuration string from config file or config body
+// 参数优先级：配置体 > 配置文件
+// Parameter priority: config body > config file
 func getConfigString(configFile string, inConfigBody string) (string, error) {
 	if inConfigBody != "" || configFile == "" {
 		return inConfigBody, nil
