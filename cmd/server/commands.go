@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package main implements the LiveKit server command line interface
+// 实现 LiveKit 服务器的命令行接口
+
 package main
 
 import (
@@ -35,6 +38,10 @@ import (
 	"github.com/livekit/livekit-server/pkg/service"
 )
 
+// generateKeys generates a new API key/secret pair for server authentication
+// Used for creating new API credentials that clients can use to connect to LiveKit
+// 生成新的 API 密钥/密钥对，用于服务器认证
+// 用于创建新的 API 凭证，客户端可以使用这些凭证连接到 LiveKit
 func generateKeys(_ *cli.Context) error {
 	apiKey := guid.New(utils.APIKeyPrefix)
 	secret := utils.RandomSecret()
@@ -43,6 +50,10 @@ func generateKeys(_ *cli.Context) error {
 	return nil
 }
 
+// printPorts prints all ports that the server is configured to use
+// This includes HTTP service ports, WebRTC ports (UDP/TCP), and TURN ports if enabled
+// 打印服务器配置使用的所有端口
+// 包括 HTTP 服务端口、WebRTC 端口(UDP/TCP)，以及启用时的 TURN 端口
 func printPorts(c *cli.Context) error {
 	conf, err := getConfig(c)
 	if err != nil {
@@ -84,6 +95,10 @@ func printPorts(c *cli.Context) error {
 	return nil
 }
 
+// helpVerbose prints detailed help information for the application
+// Includes all configuration flags, both base and generated ones
+// 打印应用程序的详细帮助信息
+// 包括所有配置标志，包括基本标志和生成的标志
 func helpVerbose(c *cli.Context) error {
 	generatedFlags, err := config.GenerateCLIFlags(baseFlags, false)
 	if err != nil {
@@ -94,6 +109,19 @@ func helpVerbose(c *cli.Context) error {
 	return cli.ShowAppHelp(c)
 }
 
+// createToken creates a room access token for development purposes
+// The token includes:
+// - Room access permissions
+// - User identity
+// - Optional recorder permissions
+// - 30-day validity period
+//
+// 创建用于开发目的的房间访问令牌
+// 令牌包含：
+// - 房间访问权限
+// - 用户身份
+// - 可选的录制权限
+// - 30天的有效期
 func createToken(c *cli.Context) error {
 	room := c.String("room")
 	identity := c.String("identity")
@@ -160,6 +188,19 @@ func createToken(c *cli.Context) error {
 	return nil
 }
 
+// listNodes displays information about all nodes in the LiveKit cluster
+// Shows details such as:
+// - Node ID and type
+// - Number of rooms and participants
+// - System stats (CPU, memory)
+// - Network stats (bytes in/out)
+//
+// 显示 LiveKit 集群中所有节点的信息
+// 显示的详细信息包括：
+// - 节点 ID 和类型
+// - 房间和参与者数量
+// - 系统状态 (CPU、内存)
+// - 网络状态 (出入流量)
 func listNodes(c *cli.Context) error {
 	conf, err := getConfig(c)
 	if err != nil {
