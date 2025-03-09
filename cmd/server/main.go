@@ -15,6 +15,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -138,6 +139,13 @@ var baseFlags = []cli.Flag{
 	&cli.StringFlag{
 		Name:  "memprofile",
 		Usage: "write memory profile to `file`",
+	},
+
+	// goroutine分析参数
+	// Goroutine profile to write to `file`
+	&cli.StringFlag{
+		Name:  "goroutineprofile",
+		Usage: "write goroutine profile to `file` when receiving SIGUSR1",
 	},
 
 	// 开发模式参数
@@ -348,6 +356,36 @@ func startServer(c *cli.Context) error {
 				_ = f.Close()
 			}()
 		}
+	}
+
+	// 设置 goroutine profile
+	if goroutineProfile := c.String("goroutineprofile"); goroutineProfile != "" {
+		go func() {
+			sigusr1 := make(chan os.Signal, 1)
+			signal.Notify(sigusr1, syscall.SIGUSR1)
+			for range sigusr1 {
+				f, err := os.Create(goroutineProfile)
+				if err != nil {
+					logger.Errorw("failed to create goroutine profile", err)
+					continue
+				}
+
+				// 获取所有 goroutine 的堆栈跟踪
+				prof := pprof.Lookup("goroutine")
+				if prof == nil {
+					logger.Errorw("could not find goroutine profile", errors.New("profile not found"))
+					f.Close()
+					continue
+				}
+
+				if err := prof.WriteTo(f, 0); err != nil {
+					logger.Errorw("could not write profile", err)
+				}
+				f.Close()
+
+				logger.Infow("wrote goroutine profile", "file", goroutineProfile)
+			}
+		}()
 	}
 
 	// 创建本地节点
