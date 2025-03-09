@@ -359,6 +359,8 @@ func startServer(c *cli.Context) error {
 	}
 
 	// 设置 goroutine profile
+	// add -gcflags=-l=0 to compile flag
+	// cqlmq 2025-03-09
 	if goroutineProfile := c.String("goroutineprofile"); goroutineProfile != "" {
 		go func() {
 			sigusr1 := make(chan os.Signal, 1)
