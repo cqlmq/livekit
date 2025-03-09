@@ -831,6 +831,7 @@ func SetLogger(l logger.Logger) {
 	logger.SetLogger(l, "livekit")
 }
 
+// Deprecated: 在NewConfig中调用, 本方法已废弃
 func InitLoggerFromConfig(config *LoggingConfig) {
 	// delete code here at 2025-03-09 cqlmq
 	// logger.InitFromConfig(&config.Config, "livekit")
