@@ -448,14 +448,33 @@ func NewConfig(confString string, strictMode bool, c *cli.Context, baseFlags []c
 		}
 	}
 
+	// 如果日志级别不为空, 则使用日志级别
+	if conf.LogLevel != "" {
+		conf.Logging.Level = conf.LogLevel
+	}
+	// 如果日志级别为空, 并且开发模式为true, 则默认使用debug级别
+	if conf.Logging.Level == "" && conf.Development {
+		conf.Logging.Level = "debug"
+	}
+	// 如果pion日志级别不为空, 则使用pion日志级别
+	if conf.Logging.PionLevel != "" {
+		if conf.Logging.ComponentLevels == nil {
+			conf.Logging.ComponentLevels = map[string]string{}
+		}
+		conf.Logging.ComponentLevels["transport.pion"] = conf.Logging.PionLevel
+		conf.Logging.ComponentLevels["pion"] = conf.Logging.PionLevel
+	}
+	// 初始化日志
+	// add code here at 2025-03-09 cqlmq
+	logger.InitFromConfig(&conf.Logging.Config, "livekit")
+
 	// 验证 RTC 配置
 	// 在 Validate 方法中，会根据 development 参数设置默认值， 比如可以获取到NodeIP
-	// st := time.Now()
+	st := time.Now()
 	if err := conf.RTC.Validate(conf.Development); err != nil {
 		return nil, fmt.Errorf("could not validate RTC config: %v", err)
 	}
-	// 暂时还不能使用logger, 因为logger 还没有初始化
-	// fmt.Println("测试信息: conf.RTC.Validate", time.Since(st), "nodeIP", conf.RTC.NodeIP)
+	logger.Infow("conf.RTC.Validate", "nodeIP", conf.RTC.NodeIP, "time", time.Since(st))
 
 	// 扩展环境变量, 扩展 ~ 路径符号
 	file, err := homedir.Expand(os.ExpandEnv(conf.KeyFile))
@@ -476,23 +495,6 @@ func NewConfig(confString string, strictMode bool, c *cli.Context, baseFlags []c
 			conf.TURN.RelayPortRangeStart = 30000
 			conf.TURN.RelayPortRangeEnd = 40000
 		}
-	}
-
-	// 如果日志级别不为空, 则使用日志级别
-	if conf.LogLevel != "" {
-		conf.Logging.Level = conf.LogLevel
-	}
-	// 如果日志级别为空, 并且开发模式为true, 则默认使用debug级别
-	if conf.Logging.Level == "" && conf.Development {
-		conf.Logging.Level = "debug"
-	}
-	// 如果pion日志级别不为空, 则使用pion日志级别
-	if conf.Logging.PionLevel != "" {
-		if conf.Logging.ComponentLevels == nil {
-			conf.Logging.ComponentLevels = map[string]string{}
-		}
-		conf.Logging.ComponentLevels["transport.pion"] = conf.Logging.PionLevel
-		conf.Logging.ComponentLevels["pion"] = conf.Logging.PionLevel
 	}
 
 	// copy over legacy limits
@@ -820,11 +822,16 @@ func (conf *Config) unmarshalKeys(keys string) error {
 	return nil
 }
 
+func (conf *Config) InitLogger() {
+	// 如果NewConfig 只会调用一次的话，可以将代码放在这里，然后在NewConfig中调用本方法
+}
+
 // Note: only pass in logr.Logger with default depth
 func SetLogger(l logger.Logger) {
 	logger.SetLogger(l, "livekit")
 }
 
 func InitLoggerFromConfig(config *LoggingConfig) {
-	logger.InitFromConfig(&config.Config, "livekit")
+	// delete code here at 2025-03-09 cqlmq
+	// logger.InitFromConfig(&config.Config, "livekit")
 }
