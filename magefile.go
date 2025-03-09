@@ -68,6 +68,7 @@ func Build() error {
 	if err := os.MkdirAll("bin", 0755); err != nil {
 		return err
 	}
+	// 为了goroutineprofile加了编译参数：-gcflags=-l=0, 稳定后优化编译
 	// if err := mageutil.RunDir(context.Background(), "cmd/server", "go build -o ../../bin/livekit-server"); err != nil {
 	if err := mageutil.RunDir(context.Background(), "cmd/server", "go build -gcflags=-l=0 -o ../../bin/livekit-server"); err != nil {
 		return err
