@@ -466,7 +466,7 @@ func NewConfig(confString string, strictMode bool, c *cli.Context, baseFlags []c
 	}
 	// 初始化日志
 	// add code here at 2025-03-09 cqlmq
-	logger.InitFromConfig(&conf.Logging.Config, "livekit")
+	logger.InitFromConfig(&conf.Logging.Config, "")
 
 	// 验证 RTC 配置
 	// 在 Validate 方法中，会根据 development 参数设置默认值， 比如可以获取到NodeIP

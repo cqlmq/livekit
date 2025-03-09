@@ -299,6 +299,7 @@ func getConfig(c *cli.Context) (*config.Config, error) {
 					"::1",
 				}
 			} else {
+				// 如果非回环地址被提供, 则我们匹配RTC IP到绑定地址
 				// if non-loopback addresses are provided, then we'll match RTC IP to bind address
 				// our IP discovery ignores loopback addresses
 				for _, addr := range conf.BindAddresses {
@@ -309,6 +310,7 @@ func getConfig(c *cli.Context) (*config.Config, error) {
 				}
 			}
 			if shouldMatchRTCIP {
+				// 如果应该匹配RTC IP, 则我们添加绑定地址到RTC IPs
 				for _, bindAddr := range conf.BindAddresses {
 					conf.RTC.IPs.Includes = append(conf.RTC.IPs.Includes, bindAddr+"/24")
 				}
