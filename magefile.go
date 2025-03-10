@@ -33,24 +33,25 @@ import (
 )
 
 const (
-	goChecksumFile = ".checksumgo"
-	imageName      = "livekit/livekit-server"
+	goChecksumFile = ".checksumgo"            // 检查文件 用于检查文件是否被修改
+	imageName      = "livekit/livekit-server" // 镜像名称
 )
 
 // Default target to run when none is specified
 // If not set, running mage will list available targets
 var (
-	Default     = Build
-	checksummer = mageutil.NewChecksummer(".", goChecksumFile, ".go", ".mod")
+	Default     = Build                                                       // 默认目标 构建
+	checksummer = mageutil.NewChecksummer(".", goChecksumFile, ".go", ".mod") // 检查文件 用于检查文件是否被修改
 )
 
 func init() {
 	checksummer.IgnoredPaths = []string{
-		"pkg/service/wire_gen.go",
-		"pkg/rtc/types/typesfakes",
+		"pkg/service/wire_gen.go",  // 忽略wire_gen.go文件
+		"pkg/rtc/types/typesfakes", // 忽略typesfakes文件 忽略测试假数据
 	}
 }
 
+// 安装所有依赖
 // explicitly reinstall all deps
 func Deps() error {
 	return installTools(true)
@@ -190,9 +191,15 @@ func Generate() error {
 	return mageutil.Run(context.Background(), "go generate ./...")
 }
 
+// 代码生成
 // code generation for wiring
 func generateWire() error {
+	// 安装依赖
 	mg.Deps(installDeps)
+
+	fmt.Println("checksummer.IsChanged()", checksummer.IsChanged())
+
+	// 检查文件是否被修改
 	if !checksummer.IsChanged() {
 		return nil
 	}
@@ -203,9 +210,14 @@ func generateWire() error {
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(wire)
-	cmd.Dir = "pkg/service"
-	mageutil.ConnectStd(cmd)
+
+	fmt.Println("wire", wire)
+
+	cmd := exec.Command(wire) // 准备wire命令
+	cmd.Dir = "pkg/service"   // 指定目录
+	mageutil.ConnectStd(cmd)  // 连接标准输出和标准错误输出
+
+	// 执行wire命令 wire 在某目录下执行时，会自动寻找该目录下的wire.go文件 并生成wire_gen.go文件
 	if err := cmd.Run(); err != nil {
 		return err
 	}

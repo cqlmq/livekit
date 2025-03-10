@@ -392,10 +392,19 @@ func startServer(c *cli.Context) error {
 
 	// 创建本地节点
 	// Create local node
+	// 数据样本：{
+	//  "id":"ND_hp9Ny4sFYKBS",
+	//  "ip":"113.206.32.164",
+	//  "num_cpus":10,
+	//  "stats":{"started_at":1741530520,"updated_at":1741530520},
+	//  "state":1
+	// }
 	currentNode, err := routing.NewLocalNode(conf)
 	if err != nil {
 		return err
 	}
+
+	logger.Debugw("current node info", "id", currentNode.NodeID(), "ip", currentNode.NodeIP(), "type", currentNode.NodeType())
 
 	// 初始化Prometheus监控
 	// Initialize Prometheus monitoring
@@ -407,6 +416,7 @@ func startServer(c *cli.Context) error {
 	// Initialize server
 	server, err := service.InitializeServer(conf, currentNode)
 	if err != nil {
+		logger.GetLogger().WithCallDepth(0).Errorw("initialize server", err)
 		return err
 	}
 
@@ -414,10 +424,11 @@ func startServer(c *cli.Context) error {
 	// Set up signal handling
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-
 	// 启动信号处理协程
 	// Start signal handling goroutine
 	go func() {
+		// 第一次中断时优雅关闭，第二次中断时强制关闭
+		// When the first interrupt occurs, gracefully shut down, and when the second interrupt occurs, forcefully shut down
 		for i := 0; i < 2; i++ {
 			sig := <-sigChan
 			force := i > 0

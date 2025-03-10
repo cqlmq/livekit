@@ -44,7 +44,7 @@ var (
 	forwardLatency             atomic.Uint32
 	forwardJitter              atomic.Uint32
 
-	promPacketLabels          = []string{"direction", "transmission"}
+	promPacketLabels          = []string{"direction", "transmission"} // 包方向和传输类型
 	promPacketTotal           *prometheus.CounterVec
 	promPacketBytes           *prometheus.CounterVec
 	promRTCPLabels            = []string{"direction"}

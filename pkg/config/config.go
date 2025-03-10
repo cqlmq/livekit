@@ -822,8 +822,9 @@ func (conf *Config) unmarshalKeys(keys string) error {
 	return nil
 }
 
-func (conf *Config) InitLogger() {
-	// 如果NewConfig 只会调用一次的话，可以将代码放在这里，然后在NewConfig中调用本方法
+// LimitConfig 限制配置
+func (conf *Config) GetLimitConfig() LimitConfig {
+	return conf.Limit
 }
 
 // Note: only pass in logr.Logger with default depth

@@ -35,24 +35,30 @@ const (
 var (
 	initialized atomic.Bool
 
-	MessageCounter            *prometheus.CounterVec
-	MessageBytes              *prometheus.CounterVec
-	ServiceOperationCounter   *prometheus.CounterVec
-	TwirpRequestStatusCounter *prometheus.CounterVec
+	MessageCounter            *prometheus.CounterVec // 消息计数
+	MessageBytes              *prometheus.CounterVec // 消息字节数
+	ServiceOperationCounter   *prometheus.CounterVec // 服务操作计数
+	TwirpRequestStatusCounter *prometheus.CounterVec // Twirp请求状态计数
 
-	sysPacketsStart              uint32
-	sysDroppedPacketsStart       uint32
-	promSysPacketGauge           *prometheus.GaugeVec
-	promSysDroppedPacketPctGauge prometheus.Gauge
+	sysPacketsStart              uint32               // 系统级别包计数
+	sysDroppedPacketsStart       uint32               // 系统级别丢包计数
+	promSysPacketGauge           *prometheus.GaugeVec // 系统级别包计数
+	promSysDroppedPacketPctGauge prometheus.Gauge     // 系统级别丢包率
 
-	cpuStats *hwstats.CPUStats
+	cpuStats *hwstats.CPUStats // CPU统计
 )
 
+// 初始化Prometheus监控
+// Initialize Prometheus monitoring
 func Init(nodeID string, nodeType livekit.NodeType) error {
+	// 如果已经初始化，直接返回
+	// 这个用法与sync.Once类似，以后深入理解
 	if initialized.Swap(true) {
 		return nil
 	}
 
+	// 创建Prometheus指标 用于消息计数
+	// Create Prometheus metrics for message counting
 	MessageCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace:   livekitNamespace,
@@ -73,6 +79,8 @@ func Init(nodeID string, nodeType livekit.NodeType) error {
 		[]string{"type", "message_type"},
 	)
 
+	// 创建Prometheus指标 用于服务操作计数
+	// Create Prometheus metrics for service operation counting
 	ServiceOperationCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace:   livekitNamespace,
@@ -83,6 +91,8 @@ func Init(nodeID string, nodeType livekit.NodeType) error {
 		[]string{"type", "status", "error_type"},
 	)
 
+	// 创建Prometheus指标 用于Twirp请求状态计数
+	// Create Prometheus metrics for Twirp request status counting
 	TwirpRequestStatusCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace:   livekitNamespace,
@@ -93,6 +103,8 @@ func Init(nodeID string, nodeType livekit.NodeType) error {
 		[]string{"service", "method", "status", "code"},
 	)
 
+	// 创建Prometheus指标 用于系统级别包计数
+	// Create Prometheus metrics for system level packet count
 	promSysPacketGauge = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace:   livekitNamespace,
@@ -104,6 +116,8 @@ func Init(nodeID string, nodeType livekit.NodeType) error {
 		[]string{"type"},
 	)
 
+	// 创建Prometheus指标 用于系统级别丢包率
+	// Create Prometheus metrics for system level dropped packet percentage
 	promSysDroppedPacketPctGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Namespace:   livekitNamespace,
@@ -121,6 +135,7 @@ func Init(nodeID string, nodeType livekit.NodeType) error {
 	prometheus.MustRegister(promSysPacketGauge)
 	prometheus.MustRegister(promSysDroppedPacketPctGauge)
 
+	// 获取系统级别包计数
 	sysPacketsStart, sysDroppedPacketsStart, _ = getTCStats()
 
 	initPacketStats(nodeID, nodeType)

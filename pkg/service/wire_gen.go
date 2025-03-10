@@ -230,6 +230,7 @@ func createWebhookNotifier(conf *config.Config, provider auth.KeyProvider) (webh
 
 func createRedisClient(conf *config.Config) (redis.UniversalClient, error) {
 	if !conf.Redis.IsConfigured() {
+		logger.Debugw("redis not configured, using local store")
 		return nil, nil
 	}
 	return redis2.GetRedisClient(&conf.Redis)
@@ -300,7 +301,7 @@ func createClientConfiguration() clientconfiguration.ClientConfigurationManager 
 }
 
 func getLimitConf(config2 *config.Config) config.LimitConfig {
-	return config2.Limit
+	return config2.GetLimitConfig()
 }
 
 func getRoomConfig(config2 *config.Config) config.RoomConfig {

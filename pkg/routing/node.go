@@ -49,7 +49,10 @@ type LocalNodeImpl struct {
 	prevStats *livekit.NodeStats
 }
 
+// NewLocalNode 创建一个本地节点
+// 没有配置也行，但是需要设置NodeIP及Region （以后看是否有这样的场景）
 func NewLocalNode(conf *config.Config) (*LocalNodeImpl, error) {
+	// 生成一个唯一的节点ID b57编码 所以采用了自定义的guid.New
 	nodeID := guid.New(utils.NodePrefix)
 	if conf != nil && conf.RTC.NodeIP == "" {
 		return nil, ErrIPNotSet

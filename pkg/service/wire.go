@@ -45,61 +45,61 @@ import (
 
 func InitializeServer(conf *config.Config, currentNode routing.LocalNode) (*LivekitServer, error) {
 	wire.Build(
-		getNodeID,
-		createRedisClient,
-		createStore,
-		wire.Bind(new(ServiceStore), new(ObjectStore)),
-		createKeyProvider,
-		createWebhookNotifier,
-		createClientConfiguration,
-		createForwardStats,
-		routing.CreateRouter,
-		getLimitConf,
-		config.DefaultAPIConfig,
-		wire.Bind(new(routing.MessageRouter), new(routing.Router)),
-		wire.Bind(new(livekit.RoomService), new(*RoomService)),
-		telemetry.NewAnalyticsService,
-		telemetry.NewTelemetryService,
-		getMessageBus,
-		NewIOInfoService,
-		wire.Bind(new(IOClient), new(*IOInfoService)),
-		rpc.NewEgressClient,
-		rpc.NewIngressClient,
-		getEgressStore,
-		NewEgressLauncher,
-		NewEgressService,
-		getIngressStore,
-		getIngressConfig,
-		NewIngressService,
-		rpc.NewSIPClient,
-		getSIPStore,
-		getSIPConfig,
-		NewSIPService,
-		NewRoomAllocator,
-		NewRoomService,
-		NewRTCService,
-		NewAgentService,
-		NewAgentDispatchService,
-		agent.NewAgentClient,
-		getAgentStore,
-		getSignalRelayConfig,
-		NewDefaultSignalServer,
-		routing.NewSignalClient,
-		getRoomConfig,
-		routing.NewRoomManagerClient,
-		rpc.NewKeepalivePubSub,
-		getPSRPCConfig,
-		getPSRPCClientParams,
-		rpc.NewTopicFormatter,
-		rpc.NewTypedRoomClient,
-		rpc.NewTypedParticipantClient,
-		rpc.NewTypedAgentDispatchInternalClient,
-		NewLocalRoomManager,
-		NewTURNAuthHandler,
-		getTURNAuthHandlerFunc,
-		newInProcessTurnServer,
-		utils.NewDefaultTimedVersionGenerator,
-		NewLivekitServer,
+		getNodeID,         // 获取节点ID
+		createRedisClient, // 创建Redis客户端
+		createStore,       // 创建存储
+		wire.Bind(new(ServiceStore), new(ObjectStore)), // 绑定服务存储
+		createKeyProvider,         // 创建密钥提供者
+		createWebhookNotifier,     // 创建Webhook通知器
+		createClientConfiguration, // 创建客户端配置
+		createForwardStats,        // 创建转发统计
+		routing.CreateRouter,      // 创建路由
+		getLimitConf,              // 获取限制配置
+		config.DefaultAPIConfig,   // 默认API配置
+		wire.Bind(new(routing.MessageRouter), new(routing.Router)), // 绑定消息路由
+		wire.Bind(new(livekit.RoomService), new(*RoomService)),     // 绑定房间服务
+		telemetry.NewAnalyticsService,                              // 创建分析服务
+		telemetry.NewTelemetryService,                              // 创建Telemetry服务
+		getMessageBus,                                              // 获取消息总线
+		NewIOInfoService,                                           // 创建IO信息服务
+		wire.Bind(new(IOClient), new(*IOInfoService)),              // 绑定IO客户端
+		rpc.NewEgressClient,                                        // 创建Egress客户端
+		rpc.NewIngressClient,                                       // 创建Ingress客户端
+		getEgressStore,                                             // 获取Egress存储
+		NewEgressLauncher,                                          // 创建Egress启动器
+		NewEgressService,                                           // 创建Egress服务
+		getIngressStore,                                            // 获取Ingress存储
+		getIngressConfig,                                           // 获取Ingress配置
+		NewIngressService,                                          // 创建Ingress服务
+		rpc.NewSIPClient,                                           // 创建SIP客户端
+		getSIPStore,                                                // 获取SIP存储
+		getSIPConfig,                                               // 获取SIP配置
+		NewSIPService,                                              // 创建SIP服务
+		NewRoomAllocator,                                           // 创建房间分配器
+		NewRoomService,                                             // 创建房间服务
+		NewRTCService,                                              // 创建RTC服务
+		NewAgentService,                                            // 创建Agent服务
+		NewAgentDispatchService,                                    // 创建Agent调度服务
+		agent.NewAgentClient,                                       // 创建Agent客户端
+		getAgentStore,                                              // 获取Agent存储
+		getSignalRelayConfig,                                       // 获取信号Relay配置
+		NewDefaultSignalServer,                                     // 创建默认信号服务器
+		routing.NewSignalClient,                                    // 创建信号客户端
+		getRoomConfig,                                              // 获取房间配置
+		routing.NewRoomManagerClient,                               // 创建房间管理客户端
+		rpc.NewKeepalivePubSub,                                     // 创建Keepalive发布订阅
+		getPSRPCConfig,                                             // 获取PSRPC配置
+		getPSRPCClientParams,                                       // 获取PSRPC客户端参数
+		rpc.NewTopicFormatter,                                      // 创建Topic格式化器
+		rpc.NewTypedRoomClient,                                     // 创建TypedRoom客户端
+		rpc.NewTypedParticipantClient,                              // 创建TypedParticipant客户端
+		rpc.NewTypedAgentDispatchInternalClient,                    // 创建TypedAgentDispatchInternal客户端
+		NewLocalRoomManager,                                        // 创建LocalRoomManager
+		NewTURNAuthHandler,                                         // 创建TURNAuthHandler
+		getTURNAuthHandlerFunc,                                     // 获取TURNAuthHandlerFunc
+		newInProcessTurnServer,                                     // 创建InProcessTurnServer
+		utils.NewDefaultTimedVersionGenerator,                      // 创建DefaultTimedVersionGenerator
+		NewLivekitServer,                                           // 创建LivekitServer
 	)
 	return &LivekitServer{}, nil
 }
@@ -170,6 +170,7 @@ func createWebhookNotifier(conf *config.Config, provider auth.KeyProvider) (webh
 
 func createRedisClient(conf *config.Config) (redis.UniversalClient, error) {
 	if !conf.Redis.IsConfigured() {
+		logger.Debugw("redis not configured, using local store")
 		return nil, nil
 	}
 	return redisLiveKit.GetRedisClient(&conf.Redis)
@@ -240,7 +241,7 @@ func createClientConfiguration() clientconfiguration.ClientConfigurationManager 
 }
 
 func getLimitConf(config *config.Config) config.LimitConfig {
-	return config.Limit
+	return config.GetLimitConfig()
 }
 
 func getRoomConfig(config *config.Config) config.RoomConfig {
