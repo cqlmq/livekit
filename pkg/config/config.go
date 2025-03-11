@@ -224,12 +224,13 @@ type NodeSelectorConfig struct {
 	Regions      []RegionConfig `yaml:"regions,omitempty"`
 }
 
+// SignalRelayConfig 定义了信号中继配置
 type SignalRelayConfig struct {
-	RetryTimeout     time.Duration `yaml:"retry_timeout,omitempty"`
-	MinRetryInterval time.Duration `yaml:"min_retry_interval,omitempty"`
-	MaxRetryInterval time.Duration `yaml:"max_retry_interval,omitempty"`
-	StreamBufferSize int           `yaml:"stream_buffer_size,omitempty"`
-	ConnectAttempts  int           `yaml:"connect_attempts,omitempty"`
+	RetryTimeout     time.Duration `yaml:"retry_timeout,omitempty"`      // 重试超时时间
+	MinRetryInterval time.Duration `yaml:"min_retry_interval,omitempty"` // 最小重试间隔时间
+	MaxRetryInterval time.Duration `yaml:"max_retry_interval,omitempty"` // 最大重试间隔时间
+	StreamBufferSize int           `yaml:"stream_buffer_size,omitempty"` // 流缓冲区大小
+	ConnectAttempts  int           `yaml:"connect_attempts,omitempty"`   // 连接尝试次数
 }
 
 // RegionConfig lists available regions and their latitude/longitude, so the selector would prefer
@@ -298,12 +299,15 @@ type SIPConfig struct{}
 
 type APIConfig struct {
 	// amount of time to wait for API to execute, default 2s
+	// 执行API请求的超时时间
 	ExecutionTimeout time.Duration `yaml:"execution_timeout,omitempty"`
 
 	// min amount of time to wait before checking for operation complete
+	// 检查API请求是否完成的间隔时间
 	CheckInterval time.Duration `yaml:"check_interval,omitempty"`
 
 	// max amount of time to wait before checking for operation complete
+	// 最大检查API请求是否完成的间隔时间
 	MaxCheckInterval time.Duration `yaml:"max_check_interval,omitempty"`
 }
 

@@ -45,24 +45,35 @@ import (
 	"github.com/livekit/livekit-server/version"
 )
 
+// LivekitServer 定义了LivekitServer结构体
 type LivekitServer struct {
-	config       *config.Config
-	ioService    *IOInfoService
-	rtcService   *RTCService
-	agentService *AgentService
-	httpServer   *http.Server
-	promServer   *http.Server
-	router       routing.Router
-	roomManager  *RoomManager
-	signalServer *SignalServer
-	turnServer   *turn.Server
-	currentNode  routing.LocalNode
-	running      atomic.Bool
-	doneChan     chan struct{}
-	closedChan   chan struct{}
+	// 核心服务组件
+	config       *config.Config // 服务器全局配置,包含所有服务的配置参数
+	roomManager  *RoomManager   // 管理房间的生命周期、参与者和媒体会话
+	signalServer *SignalServer  // 处理WebRTC连接建立的信令交换和会话协商
+	turnServer   *turn.Server   // 提供NAT穿透服务,确保在复杂网络环境下的连接性
+
+	// 媒体服务
+	rtcService   *RTCService    // 处理WebRTC连接、媒体流传输和SFU功能
+	ioService    *IOInfoService // 处理媒体流的输入输出统计和监控
+	agentService *AgentService  // 处理媒体处理代理(如录制、转码等)的管理
+
+	// 网络和API服务
+	httpServer *http.Server   // 提供REST API和WebSocket接入点
+	promServer *http.Server   // 提供Prometheus指标采集接口
+	router     routing.Router // 处理分布式节点间的消息路由和负载均衡
+
+	// 节点状态管理
+	currentNode routing.LocalNode // 当前节点在集群中的标识和状态信息
+	running     atomic.Bool       // 服务器运行状态标志
+	doneChan    chan struct{}     // 服务关闭信号通道
+	closedChan  chan struct{}     // 服务完全停止信号通道
 }
 
-func NewLivekitServer(conf *config.Config,
+// NewLivekitServer 创建LivekitServer实例
+// NewLivekitServer creates a LivekitServer instance
+func NewLivekitServer(
+	conf *config.Config,
 	roomService livekit.RoomService,
 	agentDispatchService *AgentDispatchService,
 	egressService *EgressService,

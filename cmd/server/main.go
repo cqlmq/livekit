@@ -416,7 +416,7 @@ func startServer(c *cli.Context) error {
 	// Initialize server
 	server, err := service.InitializeServer(conf, currentNode)
 	if err != nil {
-		logger.GetLogger().WithCallDepth(0).Errorw("initialize server", err)
+		logger.Warnw("initialize server", err)
 		return err
 	}
 
