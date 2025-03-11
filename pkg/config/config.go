@@ -53,7 +53,7 @@ var (
 type Config struct {
 	Port          uint32   `yaml:"port,omitempty"`
 	BindAddresses []string `yaml:"bind_addresses,omitempty"`
-	// PrometheusPort is deprecated
+	// PrometheusPort is deprecated 请使用 Prometheus.Port 代替
 	PrometheusPort uint32                   `yaml:"prometheus_port,omitempty"`
 	Prometheus     PrometheusConfig         `yaml:"prometheus,omitempty"`
 	RTC            RTCConfig                `yaml:"rtc,omitempty"`

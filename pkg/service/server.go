@@ -104,18 +104,18 @@ func NewLivekitServer(
 	}
 
 	middlewares := []negroni.Handler{
-		// always first
+		// always first // 1. 错误恢复中间件
 		negroni.NewRecovery(),
 		// CORS is allowed, we rely on token authentication to prevent improper use
 		cors.New(cors.Options{
 			AllowOriginFunc: func(origin string) bool {
-				return true
+				return true // 允许所有来源
 			},
-			AllowedHeaders: []string{"*"},
+			AllowedHeaders: []string{"*"}, // 允许所有请求头
 			// allow preflight to be cached for a day
-			MaxAge: 86400,
+			MaxAge: 86400, // preflight 请求缓存时间为1天
 		}),
-		negroni.HandlerFunc(RemoveDoubleSlashes),
+		negroni.HandlerFunc(RemoveDoubleSlashes), // 移除 URL 中的重复斜杠
 	}
 	if keyProvider != nil {
 		middlewares = append(middlewares, NewAPIKeyAuthMiddleware(keyProvider))
@@ -158,10 +158,12 @@ func NewLivekitServer(
 		Handler: configureMiddlewares(mux, middlewares...),
 	}
 
-	if conf.PrometheusPort > 0 {
-		logger.Warnw("prometheus_port is deprecated, please switch prometheus.port instead", nil)
-		conf.Prometheus.Port = conf.PrometheusPort
-	}
+	// 去除 PrometheusPort 参数的支持，这是一个过期参数
+	// 调整优先级，以 Prometheus.Port 为准
+	// if conf.PrometheusPort > 0 && conf.Prometheus.Port == 0 {
+	// 	logger.Warnw("prometheus_port is deprecated, please switch prometheus.port instead", nil)
+	// 	conf.Prometheus.Port = conf.PrometheusPort
+	// }
 
 	if conf.Prometheus.Port > 0 {
 		promHandler := promhttp.Handler()
@@ -294,6 +296,7 @@ func (s *LivekitServer) Start() error {
 		}
 	}()
 
+	// 定时(1秒)执行关闭空闲房间直到接收到关闭信号后退出协程
 	go s.backgroundWorker()
 
 	// give time for Serve goroutine to start
@@ -320,8 +323,11 @@ func (s *LivekitServer) Start() error {
 	return nil
 }
 
+// Stop 停止LivekitServer
+// 在main.go中调用, 第一次是优雅关闭, 第二次是强制关闭
 func (s *LivekitServer) Stop(force bool) {
 	// wait for all participants to exit
+	// 等待所有参与者退出
 	s.router.Drain()
 	partTicker := time.NewTicker(5 * time.Second)
 	waitingForParticipants := !force && s.roomManager.HasParticipants()
