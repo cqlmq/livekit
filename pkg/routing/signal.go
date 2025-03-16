@@ -357,7 +357,7 @@ func (s *signalMessageSink[SendType, RecvType]) write() {
 	s.mu.Unlock()
 }
 
-// 写入消息
+// 写入消息的公开接口，将消息写入到消息队列中，可能触发异步写入操作
 func (s *signalMessageSink[SendType, RecvType]) WriteMessage(msg proto.Message) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
