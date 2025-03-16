@@ -4,28 +4,18 @@ import (
 	"net/http"
 )
 
-func GenBasicAuthMiddleware(username string, password string) (func(http.ResponseWriter, *http.Request, http.HandlerFunc) ) {
+// GenBasicAuthMiddleware 生成一个基本的HTTP认证中间件
+// 接受用户名和密码作为参数
+// 返回一个处理HTTP请求的函数
+// 目前用于prometheus访问认证
+func GenBasicAuthMiddleware(username string, password string) func(http.ResponseWriter, *http.Request, http.HandlerFunc) {
 	return func(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
-		given_username, given_password, ok := r.BasicAuth()
-		unauthorized := func() {
+		requestUsername, requestPassword, ok := r.BasicAuth()
+		if !ok || requestUsername != username || requestPassword != password {
 			rw.Header().Set("WWW-Authenticate", "Basic realm=\"Protected Area\"")
 			rw.WriteHeader(http.StatusUnauthorized)
-		}
-		if !ok {
-			unauthorized()
-			return
-		} 
-	
-		if given_username != username {
-			unauthorized()
 			return
 		}
-	
-		if given_password != password {
-			unauthorized()
-			return
-		}
-	
 		next(rw, r)
-	  }
+	}
 }

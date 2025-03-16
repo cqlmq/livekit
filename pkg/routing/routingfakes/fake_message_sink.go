@@ -38,7 +38,7 @@ type FakeMessageSink struct {
 	writeMessageMutex       sync.RWMutex
 	writeMessageArgsForCall []struct {
 		arg1 proto.Message
-	}
+	} 
 	writeMessageReturns struct {
 		result1 error
 	}
@@ -180,17 +180,17 @@ func (fake *FakeMessageSink) IsClosedReturnsOnCall(i int, result1 bool) {
 }
 
 func (fake *FakeMessageSink) WriteMessage(arg1 proto.Message) error {
-	fake.writeMessageMutex.Lock()
-	ret, specificReturn := fake.writeMessageReturnsOnCall[len(fake.writeMessageArgsForCall)]
+	fake.writeMessageMutex.Lock() // 加锁
+	ret, specificReturn := fake.writeMessageReturnsOnCall[len(fake.writeMessageArgsForCall)] // 获取返回值
 	fake.writeMessageArgsForCall = append(fake.writeMessageArgsForCall, struct {
 		arg1 proto.Message
 	}{arg1})
-	stub := fake.WriteMessageStub
-	fakeReturns := fake.writeMessageReturns
-	fake.recordInvocation("WriteMessage", []interface{}{arg1})
-	fake.writeMessageMutex.Unlock()
+	stub := fake.WriteMessageStub // 获取方法
+	fakeReturns := fake.writeMessageReturns // 获取返回值		
+	fake.recordInvocation("WriteMessage", []interface{}{arg1}) // 记录调用
+	fake.writeMessageMutex.Unlock() // 解锁
 	if stub != nil {
-		return stub(arg1)
+		return stub(arg1) // 调用方法
 	}
 	if specificReturn {
 		return ret.result1
@@ -271,3 +271,31 @@ func (fake *FakeMessageSink) recordInvocation(key string, args []interface{}) {
 }
 
 var _ routing.MessageSink = new(FakeMessageSink)
+
+// 代码阅读指南===============================================
+// 原始方法的实现：
+// WriteMessage()、IsClosed()、Close()、ConnectionID()
+// 调用计数方法：记录方法被调用的次数
+// WriteMessageCallCount()
+// IsClosedCallCount()
+// CloseCallCount()
+// ConnectionIDCallCount()
+// 参数获取方法：获取特定调用的参数
+// WriteMessageArgsForCall(i int)
+// 其他方法类似（如果有参数）
+// 返回值设置方法：设置方法的返回值
+// WriteMessageReturns(error)
+// IsClosedReturns(bool)
+// ConnectionIDReturns(livekit.ConnectionID)
+// 特定调用返回值设置：为特定的第n次调用设置返回值
+// WriteMessageReturnsOnCall(i int, error)
+// IsClosedReturnsOnCall(i int, bool)
+// ConnectionIDReturnsOnCall(i int, livekit.ConnectionID)
+// 自定义行为设置：设置方法的自定义行为
+// WriteMessageCalls(func(proto.Message) error)
+// IsClosedCalls(func() bool)
+// CloseCalls(func())
+// ConnectionIDCalls(func() livekit.ConnectionID)
+// 通用方法：
+// Invocations()：返回所有方法调用的记录
+// recordInvocation()：内部使用，记录方法调用

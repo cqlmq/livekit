@@ -154,11 +154,13 @@ func Init(nodeID string, nodeType livekit.NodeType) error {
 }
 
 func GetUpdatedNodeStats(prev *livekit.NodeStats, prevAverage *livekit.NodeStats) (*livekit.NodeStats, bool, error) {
+	// 获取当前节点的平均负载（1分钟、5分钟或15分钟）
 	loadAvg, err := getLoadAvg()
 	if err != nil {
 		return nil, false, err
 	}
 
+	// 获取CPU负载
 	var cpuLoad float64
 	cpuIdle := cpuStats.GetCPUIdle()
 	if cpuIdle > 0 {
@@ -167,6 +169,7 @@ func GetUpdatedNodeStats(prev *livekit.NodeStats, prevAverage *livekit.NodeStats
 
 	// On MacOS, get "\"vm_stat\": executable file not found in $PATH" although it is in /usr/bin
 	// So, do not error out. Use the information if it is available.
+	// 获取内存总大小和使用大小
 	memTotal := uint64(0)
 	memUsed := uint64(0)
 	memInfo, _ := memory.Get()
@@ -176,31 +179,32 @@ func GetUpdatedNodeStats(prev *livekit.NodeStats, prevAverage *livekit.NodeStats
 	}
 
 	// do not error out, and use the information if it is available
-	sysPackets, sysDroppedPackets, _ := getTCStats()
-	promSysPacketGauge.WithLabelValues("out").Set(float64(sysPackets - sysPacketsStart))
-	promSysPacketGauge.WithLabelValues("dropped").Set(float64(sysDroppedPackets - sysDroppedPacketsStart))
+	// 获取系统级别包计数
+	sysPackets, sysDroppedPackets, _ := getTCStats()                                                       // 获取系统级别包计数
+	promSysPacketGauge.WithLabelValues("out").Set(float64(sysPackets - sysPacketsStart))                   // 设置系统级别包计数
+	promSysPacketGauge.WithLabelValues("dropped").Set(float64(sysDroppedPackets - sysDroppedPacketsStart)) // 设置系统级别丢包计数
 
-	bytesInNow := bytesIn.Load()
-	bytesOutNow := bytesOut.Load()
-	packetsInNow := packetsIn.Load()
-	packetsOutNow := packetsOut.Load()
-	nackTotalNow := nackTotal.Load()
-	retransmitBytesNow := retransmitBytes.Load()
-	retransmitPacketsNow := retransmitPackets.Load()
-	participantSignalConnectedNow := participantSignalConnected.Load()
-	participantRTCInitNow := participantRTCInit.Load()
-	participantRTConnectedCNow := participantRTCConnected.Load()
-	trackPublishAttemptsNow := trackPublishAttempts.Load()
-	trackPublishSuccessNow := trackPublishSuccess.Load()
-	trackSubscribeAttemptsNow := trackSubscribeAttempts.Load()
-	trackSubscribeSuccessNow := trackSubscribeSuccess.Load()
-	forwardLatencyNow := forwardLatency.Load()
-	forwardJitterNow := forwardJitter.Load()
+	bytesInNow := bytesIn.Load()                                       // 获取字节输入
+	bytesOutNow := bytesOut.Load()                                     // 获取字节输出
+	packetsInNow := packetsIn.Load()                                   // 获取包输入
+	packetsOutNow := packetsOut.Load()                                 // 获取包输出
+	nackTotalNow := nackTotal.Load()                                   // 获取nack总数
+	retransmitBytesNow := retransmitBytes.Load()                       // 获取重传字节数
+	retransmitPacketsNow := retransmitPackets.Load()                   // 获取重传包数
+	participantSignalConnectedNow := participantSignalConnected.Load() // 获取参与者信号连接
+	participantRTCInitNow := participantRTCInit.Load()                 // 获取参与者RTC初始化
+	participantRTConnectedCNow := participantRTCConnected.Load()       // 获取参与者RTC连接
+	trackPublishAttemptsNow := trackPublishAttempts.Load()             // 获取发布尝试
+	trackPublishSuccessNow := trackPublishSuccess.Load()               // 获取发布成功
+	trackSubscribeAttemptsNow := trackSubscribeAttempts.Load()         // 获取订阅尝试
+	trackSubscribeSuccessNow := trackSubscribeSuccess.Load()           // 获取订阅成功
+	forwardLatencyNow := forwardLatency.Load()                         // 获取转发延迟
+	forwardJitterNow := forwardJitter.Load()                           // 获取转发抖动
 
-	updatedAt := time.Now().Unix()
-	elapsed := updatedAt - prevAverage.UpdatedAt
+	updatedAt := time.Now().Unix()               // 获取更新时间
+	elapsed := updatedAt - prevAverage.UpdatedAt // 计算时间差
 	// include sufficient buffer to be sure a stats update had taken place
-	computeAverage := elapsed > int64(statsUpdateInterval.Seconds()+2)
+	computeAverage := elapsed > int64(statsUpdateInterval.Seconds()+2) // 计算是否需要计算平均值
 	if bytesInNow != prevAverage.BytesIn ||
 		bytesOutNow != prevAverage.BytesOut ||
 		packetsInNow != prevAverage.PacketsIn ||

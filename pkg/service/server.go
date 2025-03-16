@@ -97,7 +97,8 @@ func NewLivekitServer(
 		router:       router,
 		roomManager:  roomManager,
 		signalServer: signalServer,
-		// turn server starts automatically
+		// turn server starts automatically at NewTurnServer
+		// 在NewTurnServer中自动启动, 监听已经启动了
 		turnServer:  turnServer,
 		currentNode: currentNode,
 		closedChan:  make(chan struct{}),
@@ -166,7 +167,7 @@ func NewLivekitServer(
 	// }
 
 	if conf.Prometheus.Port > 0 {
-		promHandler := promhttp.Handler()
+		promHandler := promhttp.Handler() // 创建一个prometheus指标采集的handler
 		if conf.Prometheus.Username != "" && conf.Prometheus.Password != "" {
 			protectedHandler := negroni.New()
 			protectedHandler.Use(negroni.HandlerFunc(GenBasicAuthMiddleware(conf.Prometheus.Username, conf.Prometheus.Password)))
@@ -382,11 +383,16 @@ func (s *LivekitServer) defaultHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// healthCheck 健康检查
+// changed 2025-03-10 cqlmq 添加未初始化节点判断
 func (s *LivekitServer) healthCheck(w http.ResponseWriter, _ *http.Request) {
-	var updatedAt time.Time
-	if s.Node().Stats != nil {
-		updatedAt = time.Unix(s.Node().Stats.UpdatedAt, 0)
+	stats := s.Node().Stats
+	if stats == nil {
+		w.WriteHeader(http.StatusNotAcceptable)
+		_, _ = w.Write([]byte("Node not initialized"))
+		return
 	}
+	var updatedAt = time.Unix(stats.UpdatedAt, 0)
 	if time.Since(updatedAt) > 4*time.Second {
 		w.WriteHeader(http.StatusNotAcceptable)
 		_, _ = w.Write([]byte(fmt.Sprintf("Not Ready\nNode Updated At %s", updatedAt)))
@@ -411,6 +417,8 @@ func (s *LivekitServer) backgroundWorker() {
 	}
 }
 
+// configureMiddlewares 配置中间件
+// 将所有中间件添加到Negroni实例中
 func configureMiddlewares(handler http.Handler, middlewares ...negroni.Handler) *negroni.Negroni {
 	n := negroni.New()
 	for _, m := range middlewares {

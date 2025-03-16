@@ -25,6 +25,7 @@ import (
 	"github.com/livekit/protocol/logger"
 )
 
+// 编译时类型检查 确保 LocalRouter 实现了 Router 接口
 var _ Router = (*LocalRouter)(nil)
 
 // a router of messages on the same node, basic implementation for local testing
@@ -35,9 +36,9 @@ type LocalRouter struct {
 
 	lock sync.RWMutex
 	// channels for each participant
-	requestChannels  map[string]*MessageChannel
-	responseChannels map[string]*MessageChannel
-	isStarted        atomic.Bool
+	requestChannels  map[string]*MessageChannel // 每个参与者的请求通道
+	responseChannels map[string]*MessageChannel // 每个参与者的响应通道
+	isStarted        atomic.Bool                // 是否启动
 }
 
 func NewLocalRouter(
@@ -85,6 +86,7 @@ func (r *LocalRouter) GetNode(nodeID livekit.NodeID) (*livekit.Node, error) {
 	return nil, ErrNotFound
 }
 
+// 列出所有节点, 本地模式下只有一个节点
 func (r *LocalRouter) ListNodes() ([]*livekit.Node, error) {
 	return []*livekit.Node{
 		r.currentNode.Clone(),
@@ -131,6 +133,7 @@ func (r *LocalRouter) Start() error {
 	return nil
 }
 
+// 排空
 func (r *LocalRouter) Drain() {
 	r.currentNode.SetState(livekit.NodeState_SHUTTING_DOWN)
 }

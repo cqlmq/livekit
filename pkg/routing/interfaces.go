@@ -34,6 +34,8 @@ import (
 
 // MessageSink is an abstraction for writing protobuf messages and having them read by a MessageSource,
 // potentially on a different node via a transport
+// 消息发送器 是一个抽象接口，用于写入 protobuf 消息并让 MessageSource 读取这些消息，
+// 可能通过传输层在不同节点上进行
 //
 //counterfeiter:generate . MessageSink
 type MessageSink interface {
@@ -45,6 +47,7 @@ type MessageSink interface {
 
 // ----------
 
+// 空消息发送器
 type NullMessageSink struct {
 	connID   livekit.ConnectionID
 	isClosed atomic.Bool
@@ -77,6 +80,7 @@ func (n *NullMessageSink) ConnectionID() livekit.ConnectionID {
 //counterfeiter:generate . MessageSource
 type MessageSource interface {
 	// ReadChan exposes a one way channel to make it easier to use with select
+	// 暴露一个单向通道，方便与 select 一起使用
 	ReadChan() <-chan proto.Message
 	IsClosed() bool
 	Close()
@@ -85,6 +89,7 @@ type MessageSource interface {
 
 // ----------
 
+// 空消息源
 type NullMessageSource struct {
 	connID   livekit.ConnectionID
 	msgChan  chan proto.Message
@@ -94,7 +99,7 @@ type NullMessageSource struct {
 func NewNullMessageSource(connID livekit.ConnectionID) *NullMessageSource {
 	return &NullMessageSource{
 		connID:  connID,
-		msgChan: make(chan proto.Message, 0),
+		msgChan: make(chan proto.Message),
 	}
 }
 
@@ -122,46 +127,51 @@ func (n *NullMessageSource) ConnectionID() livekit.ConnectionID {
 //
 //counterfeiter:generate . Router
 type Router interface {
-	MessageRouter
+	MessageRouter // 消息路由器
 
-	RegisterNode() error
-	UnregisterNode() error
-	RemoveDeadNodes() error
+	RegisterNode() error    // 注册节点
+	UnregisterNode() error  // 注销节点
+	RemoveDeadNodes() error // 移除死节点
 
-	ListNodes() ([]*livekit.Node, error)
+	ListNodes() ([]*livekit.Node, error) // 列出节点
 
-	GetNodeForRoom(ctx context.Context, roomName livekit.RoomName) (*livekit.Node, error)
-	SetNodeForRoom(ctx context.Context, roomName livekit.RoomName, nodeId livekit.NodeID) error
-	ClearRoomState(ctx context.Context, roomName livekit.RoomName) error
+	GetNodeForRoom(ctx context.Context, roomName livekit.RoomName) (*livekit.Node, error)       // 获取房间节点
+	SetNodeForRoom(ctx context.Context, roomName livekit.RoomName, nodeId livekit.NodeID) error // 设置房间节点
+	ClearRoomState(ctx context.Context, roomName livekit.RoomName) error                        // 清除房间状态
 
-	GetRegion() string
+	GetRegion() string // 获取区域
 
-	Start() error
-	Drain()
-	Stop()
+	Start() error // 启动
+	Drain()       // 排空
+	Stop()        // 停止
 }
 
+// 开始参与者信号结果
 type StartParticipantSignalResults struct {
-	ConnectionID        livekit.ConnectionID
-	RequestSink         MessageSink
-	ResponseSource      MessageSource
-	NodeID              livekit.NodeID
-	NodeSelectionReason string
+	ConnectionID        livekit.ConnectionID // 连接 ID
+	RequestSink         MessageSink          // 发送器
+	ResponseSource      MessageSource        // 接收器
+	NodeID              livekit.NodeID       // 节点 ID
+	NodeSelectionReason string               // 节点选择原因
 }
 
+// 消息路由器
 type MessageRouter interface {
 	// CreateRoom starts an rtc room
+	// 创建一个 rtc 房间
 	CreateRoom(ctx context.Context, req *livekit.CreateRoomRequest) (res *livekit.Room, err error)
 	// StartParticipantSignal participant signal connection is ready to start
+	// 开始参与者信号连接
 	StartParticipantSignal(ctx context.Context, roomName livekit.RoomName, pi ParticipantInit) (res StartParticipantSignalResults, err error)
 }
 
+// 创建路由器
 func CreateRouter(
-	rc redis.UniversalClient,
-	node LocalNode,
-	signalClient SignalClient,
-	roomManagerClient RoomManagerClient,
-	kps rpc.KeepalivePubSub,
+	rc redis.UniversalClient, // redis 客户端
+	node LocalNode, // 本地节点
+	signalClient SignalClient, // 信号客户端
+	roomManagerClient RoomManagerClient, // 房间管理客户端
+	kps rpc.KeepalivePubSub, // 保持活跃的发布订阅
 ) Router {
 	lr := NewLocalRouter(node, signalClient, roomManagerClient)
 
@@ -176,22 +186,24 @@ func CreateRouter(
 
 // ------------------------------------------------
 
+// 参与者初始化
 type ParticipantInit struct {
-	Identity             livekit.ParticipantIdentity
-	Name                 livekit.ParticipantName
-	Reconnect            bool
-	ReconnectReason      livekit.ReconnectReason
-	AutoSubscribe        bool
-	Client               *livekit.ClientInfo
-	Grants               *auth.ClaimGrants
-	Region               string
-	AdaptiveStream       bool
-	ID                   livekit.ParticipantID
-	SubscriberAllowPause *bool
-	DisableICELite       bool
-	CreateRoom           *livekit.CreateRoomRequest
+	Identity             livekit.ParticipantIdentity // 参与者身份
+	Name                 livekit.ParticipantName     // 参与者名称
+	Reconnect            bool                        // 是否重连
+	ReconnectReason      livekit.ReconnectReason     // 重连原因
+	AutoSubscribe        bool                        // 是否自动订阅
+	Client               *livekit.ClientInfo         // 客户端信息
+	Grants               *auth.ClaimGrants           // 授权
+	Region               string                      // 区域
+	AdaptiveStream       bool                        // 自适应流
+	ID                   livekit.ParticipantID       // 参与者 ID
+	SubscriberAllowPause *bool                       // 订阅者允许暂停
+	DisableICELite       bool                        // 禁用 ICE Lite
+	CreateRoom           *livekit.CreateRoomRequest  // 创建房间请求
 }
 
+// 参与者初始化日志对象
 func (pi *ParticipantInit) MarshalLogObject(e zapcore.ObjectEncoder) error {
 	if pi == nil {
 		return nil
@@ -220,6 +232,7 @@ func (pi *ParticipantInit) MarshalLogObject(e zapcore.ObjectEncoder) error {
 	return nil
 }
 
+// 转换为开始会话
 func (pi *ParticipantInit) ToStartSession(roomName livekit.RoomName, connectionID livekit.ConnectionID) (*livekit.StartSession, error) {
 	claims, err := json.Marshal(pi.Grants)
 	if err != nil {
@@ -250,6 +263,7 @@ func (pi *ParticipantInit) ToStartSession(roomName livekit.RoomName, connectionI
 	return ss, nil
 }
 
+// 从开始会话转换为参与者初始化
 func ParticipantInitFromStartSession(ss *livekit.StartSession, region string) (*ParticipantInit, error) {
 	claims := &auth.ClaimGrants{}
 	if err := json.Unmarshal([]byte(ss.GrantsJson), claims); err != nil {

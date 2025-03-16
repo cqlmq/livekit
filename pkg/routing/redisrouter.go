@@ -34,9 +34,9 @@ import (
 
 const (
 	// expire participant mappings after a day
-	participantMappingTTL = 24 * time.Hour
-	statsUpdateInterval   = 2 * time.Second
-	statsMaxDelaySeconds  = float64(30)
+	participantMappingTTL = 24 * time.Hour  // 参与者映射过期时间
+	statsUpdateInterval   = 2 * time.Second // 统计更新间隔
+	statsMaxDelaySeconds  = float64(30)     // 统计最大延迟秒数
 
 	// hash of node_id => Node proto
 	NodesKey = "nodes"
@@ -132,11 +132,11 @@ func (r *RedisRouter) GetNode(nodeID livekit.NodeID) (*livekit.Node, error) {
 	} else if err != nil {
 		return nil, err
 	}
-	n := livekit.Node{}
-	if err = proto.Unmarshal([]byte(data), &n); err != nil {
+	node := &livekit.Node{}
+	if err = proto.Unmarshal([]byte(data), node); err != nil {
 		return nil, err
 	}
-	return &n, nil
+	return node, nil
 }
 
 func (r *RedisRouter) ListNodes() ([]*livekit.Node, error) {
@@ -146,11 +146,11 @@ func (r *RedisRouter) ListNodes() ([]*livekit.Node, error) {
 	}
 	nodes := make([]*livekit.Node, 0, len(items))
 	for _, item := range items {
-		n := livekit.Node{}
-		if err := proto.Unmarshal([]byte(item), &n); err != nil {
+		node := &livekit.Node{}
+		if err := proto.Unmarshal([]byte(item), node); err != nil {
 			return nil, err
 		}
-		nodes = append(nodes, &n)
+		nodes = append(nodes, node)
 	}
 	return nodes, nil
 }
@@ -210,12 +210,14 @@ func (r *RedisRouter) statsWorker() {
 		// update periodically
 		select {
 		case <-time.After(statsUpdateInterval):
+			// 发布心跳
 			r.kps.PublishPing(r.ctx, r.currentNode.NodeID(), &rpc.KeepalivePing{Timestamp: time.Now().Unix()})
 
+			// 检查延迟
 			delaySeconds := r.currentNode.SecondsSinceNodeStatsUpdate()
 			if delaySeconds > statsMaxDelaySeconds {
 				if !goroutineDumped {
-					goroutineDumped = true
+					goroutineDumped = true // 设置为 true 在没有恢复之前不会重复打印
 					buf := bytes.NewBuffer(nil)
 					_ = pprof.Lookup("goroutine").WriteTo(buf, 2)
 					logger.Errorw("status update delayed, possible deadlock", nil,

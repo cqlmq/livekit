@@ -31,10 +31,11 @@ import (
 	"github.com/livekit/psrpc/pkg/middleware"
 )
 
-//counterfeiter:generate . SessionHandler
+// SessionHandler 定义了处理会话的接口
+// counterfeiter:generate . SessionHandler
 type SessionHandler interface {
 	Logger(ctx context.Context) logger.Logger
-
+	// Logger 返回一个日志记录器, 用于记录日志
 	HandleSession(
 		ctx context.Context,
 		pi routing.ParticipantInit,
@@ -114,6 +115,8 @@ func (s *defaultSessionHandler) HandleSession(
 	return s.roomManager.StartSession(ctx, pi, requestSource, responseSink, false)
 }
 
+// Start 启动信号服务器
+// 注册所有节点主题
 func (s *SignalServer) Start() error {
 	logger.Debugw("starting relay signal server", "topic", s.nodeID)
 	return s.server.RegisterAllNodeTopics(s.nodeID)
@@ -130,6 +133,10 @@ type signalService struct {
 }
 
 func (r *signalService) RelaySignal(stream psrpc.ServerStream[*rpc.RelaySignalResponse, *rpc.RelaySignalRequest]) (err error) {
+	// 1. 获取初始化请求
+	// 2. 验证会话信息
+	// 3. 建立消息通道
+	// 4. 处理会话
 	req, ok := <-stream.Channel()
 	if !ok {
 		return nil

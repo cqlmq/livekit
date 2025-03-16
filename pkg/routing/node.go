@@ -28,35 +28,39 @@ import (
 	"github.com/livekit/livekit-server/pkg/telemetry/prometheus"
 )
 
+// LocalNode 本地节点接口
 type LocalNode interface {
-	Clone() *livekit.Node
-	SetNodeID(nodeID livekit.NodeID)
-	NodeID() livekit.NodeID
-	NodeType() livekit.NodeType
-	NodeIP() string
-	Region() string
-	SetState(state livekit.NodeState)
-	SetStats(stats *livekit.NodeStats)
-	UpdateNodeStats() bool
-	SecondsSinceNodeStatsUpdate() float64
+	Clone() *livekit.Node                 // 克隆一个节点
+	SetNodeID(nodeID livekit.NodeID)      // 设置节点ID
+	NodeID() livekit.NodeID               // 获取节点ID
+	NodeType() livekit.NodeType           // 获取节点类型
+	NodeIP() string                       // 获取节点IP
+	Region() string                       // 获取节点区域
+	SetState(state livekit.NodeState)     // 设置节点状态
+	SetStats(stats *livekit.NodeStats)    // 设置节点统计信息
+	UpdateNodeStats() bool                // 更新节点统计信息
+	SecondsSinceNodeStatsUpdate() float64 // 获取节点统计信息更新时间
 }
 
+// LocalNodeImpl 本地节点实现
 type LocalNodeImpl struct {
 	lock sync.RWMutex
 	node *livekit.Node
 
 	// previous stats for computing averages
+	// 前一个统计信息，用于计算平均值
 	prevStats *livekit.NodeStats
 }
 
 // NewLocalNode 创建一个本地节点
 // 没有配置也行，但是需要设置NodeIP及Region （以后看是否有这样的场景）
 func NewLocalNode(conf *config.Config) (*LocalNodeImpl, error) {
-	// 生成一个唯一的节点ID b57编码 所以采用了自定义的guid.New
-	nodeID := guid.New(utils.NodePrefix)
 	if conf != nil && conf.RTC.NodeIP == "" {
 		return nil, ErrIPNotSet
 	}
+
+	// 生成一个唯一的节点ID b57编码 所以采用了自定义的guid.New
+	nodeID := guid.New(utils.NodePrefix)
 	l := &LocalNodeImpl{
 		node: &livekit.Node{
 			Id:      nodeID,
@@ -75,6 +79,7 @@ func NewLocalNode(conf *config.Config) (*LocalNodeImpl, error) {
 	return l, nil
 }
 
+// 从livekit.Node 新创创建 LocalNodeImpl
 func NewLocalNodeFromNodeProto(node *livekit.Node) (*LocalNodeImpl, error) {
 	return &LocalNodeImpl{node: utils.CloneProto(node)}, nil
 }
@@ -137,6 +142,7 @@ func (l *LocalNodeImpl) SetStats(stats *livekit.NodeStats) {
 	l.node.Stats = utils.CloneProto(stats)
 }
 
+// 更新节点统计信息
 func (l *LocalNodeImpl) UpdateNodeStats() bool {
 	l.lock.Lock()
 	defer l.lock.Unlock()
@@ -156,6 +162,7 @@ func (l *LocalNodeImpl) UpdateNodeStats() bool {
 	return true
 }
 
+// 获取节点统计信息更新时间过去多少秒
 func (l *LocalNodeImpl) SecondsSinceNodeStatsUpdate() float64 {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
