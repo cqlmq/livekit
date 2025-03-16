@@ -67,6 +67,7 @@ func NewSignalClient(nodeID livekit.NodeID, bus psrpc.MessageBus, config config.
 	}, nil
 }
 
+// 获取活跃的信号连接数
 func (r *signalClient) ActiveCount() int {
 	return int(r.active.Load())
 }
@@ -122,10 +123,11 @@ func (r *signalClient) StartParticipantSignal(
 	resChan := NewDefaultMessageChannel(connectionID)
 
 	go func() {
-		r.active.Inc()
-		defer r.active.Dec()
+		r.active.Inc()       // 增加活跃的信号连接数
+		defer r.active.Dec() // 减少活跃的信号连接数
 
-		err := CopySignalStreamToMessageChannel[*rpc.RelaySignalRequest, *rpc.RelaySignalResponse](
+		// 复制信号流到消息通道（一直复制，直到关闭）
+		err := CopySignalStreamToMessageChannel(
 			stream,
 			resChan,
 			signalResponseMessageReader{},
@@ -163,20 +165,24 @@ func (e signalResponseMessageReader) Read(rm *rpc.RelaySignalResponse) ([]proto.
 	return msgs, nil
 }
 
+// 信号消息接口
 type RelaySignalMessage interface {
-	proto.Message
-	GetSeq() uint64
-	GetClose() bool
+	proto.Message   // 消息
+	GetSeq() uint64 // 获取消息序列号
+	GetClose() bool // 获取关闭标志
 }
 
+// 信号消息写入器接口
 type SignalMessageWriter[SendType RelaySignalMessage] interface {
 	Write(seq uint64, close bool, msgs []proto.Message) SendType
 }
 
+// 信号消息读取器接口
 type SignalMessageReader[RecvType RelaySignalMessage] interface {
 	Read(msg RecvType) ([]proto.Message, error)
 }
 
+// 复制信号流到消息通道
 func CopySignalStreamToMessageChannel[SendType, RecvType RelaySignalMessage](
 	stream psrpc.Stream[SendType, RecvType],
 	ch *MessageChannel,
@@ -188,14 +194,14 @@ func CopySignalStreamToMessageChannel[SendType, RecvType RelaySignalMessage](
 		config: config,
 	}
 	for msg := range stream.Channel() {
-		res, err := r.Read(msg)
+		resArray, err := r.Read(msg)
 		if err != nil {
 			prometheus.MessageCounter.WithLabelValues("signal", "failure").Add(1)
 			return err
 		}
 
-		for _, r := range res {
-			if err = ch.WriteMessage(r); err != nil {
+		for _, res := range resArray {
+			if err = ch.WriteMessage(res); err != nil {
 				prometheus.MessageCounter.WithLabelValues("signal", "failure").Add(1)
 				return err
 			}
@@ -221,9 +227,12 @@ func (r *signalMessageReader[SendType, RecvType]) Read(msg RecvType) ([]proto.Me
 		return nil, err
 	}
 
+	// 检查消息序列号 如果大于预期，则丢弃多余的消息
 	if r.seq < msg.GetSeq() {
 		return nil, ErrSignalMessageDropped
 	}
+
+	// 如果消息序列号小于当前序列号，则丢弃多余的消息
 	if r.seq > msg.GetSeq() {
 		n := int(r.seq - msg.GetSeq())
 		if n > len(res) {
@@ -236,6 +245,7 @@ func (r *signalMessageReader[SendType, RecvType]) Read(msg RecvType) ([]proto.Me
 	return res, nil
 }
 
+// 信号消息写入器参数
 type SignalSinkParams[SendType, RecvType RelaySignalMessage] struct {
 	Stream         psrpc.Stream[SendType, RecvType]
 	Logger         logger.Logger
@@ -252,19 +262,20 @@ func NewSignalMessageSink[SendType, RecvType RelaySignalMessage](params SignalSi
 	}
 }
 
+// 信号消息写入器
 type signalMessageSink[SendType, RecvType RelaySignalMessage] struct {
 	SignalSinkParams[SendType, RecvType]
 
-	mu       sync.Mutex
-	seq      uint64
-	queue    []proto.Message
-	writing  bool
-	draining bool
+	mu       sync.Mutex      // 互斥锁
+	seq      uint64          // 消息序列号
+	queue    []proto.Message // 消息队列
+	writing  bool            // 写入标志
+	draining bool            // 关闭标志
 }
 
 func (s *signalMessageSink[SendType, RecvType]) Close() {
 	s.mu.Lock()
-	s.draining = true
+	s.draining = true // 设置关闭标志
 	if !s.writing {
 		s.writing = true
 		go s.write()
@@ -290,14 +301,15 @@ func (s *signalMessageSink[SendType, RecvType]) IsClosed() bool {
 	return s.Stream.Err() != nil
 }
 
+// 写入消息
 func (s *signalMessageSink[SendType, RecvType]) write() {
-	interval := s.Config.MinRetryInterval
-	deadline := time.Now().Add(s.Config.RetryTimeout)
-	var err error
+	interval := s.Config.MinRetryInterval             // 最小重试间隔
+	deadline := time.Now().Add(s.Config.RetryTimeout) // 重试超时时间
+	var err error                                     // 错误
 
 	s.mu.Lock()
 	for {
-		close := s.draining
+		close := s.draining // 关闭标志
 		if (!close && len(s.queue) == 0) || s.IsClosed() {
 			break
 		}
@@ -315,7 +327,7 @@ func (s *signalMessageSink[SendType, RecvType]) write() {
 				break
 			}
 
-			interval *= 2
+			interval *= 2 // 重试间隔翻倍
 			if interval > s.Config.MaxRetryInterval {
 				interval = s.Config.MaxRetryInterval
 			}
@@ -345,6 +357,7 @@ func (s *signalMessageSink[SendType, RecvType]) write() {
 	s.mu.Unlock()
 }
 
+// 写入消息
 func (s *signalMessageSink[SendType, RecvType]) WriteMessage(msg proto.Message) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

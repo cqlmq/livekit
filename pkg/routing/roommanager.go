@@ -34,6 +34,7 @@ type roomManagerClient struct {
 	client rpc.TypedRoomManagerClient
 }
 
+// 创建房间管理客户端
 func NewRoomManagerClient(clientParams rpc.ClientParams, config config.RoomConfig) (RoomManagerClient, error) {
 	c, err := rpc.NewTypedRoomManagerClient(
 		clientParams.Bus,

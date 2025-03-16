@@ -23,6 +23,7 @@ type AnySelector struct {
 	SortBy string
 }
 
+// 最简单的选择器，没有负载,CPU,距离条件 只根据排序方式选择
 func (s *AnySelector) SelectNode(nodes []*livekit.Node) (*livekit.Node, error) {
 	nodes = GetAvailableNodes(nodes)
 	if len(nodes) == 0 {

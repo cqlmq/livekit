@@ -31,10 +31,12 @@ type MessageChannel struct {
 	lock         sync.RWMutex
 }
 
+// 创建默认的消息通道
 func NewDefaultMessageChannel(connectionID livekit.ConnectionID) *MessageChannel {
 	return NewMessageChannel(connectionID, DefaultMessageChannelSize)
 }
 
+// 创建消息通道
 func NewMessageChannel(connectionID livekit.ConnectionID, size int) *MessageChannel {
 	return &MessageChannel{
 		connectionID: connectionID,
@@ -43,16 +45,19 @@ func NewMessageChannel(connectionID livekit.ConnectionID, size int) *MessageChan
 	}
 }
 
+// 设置关闭回调
 func (m *MessageChannel) OnClose(f func()) {
 	m.onClose = f
 }
 
+// 检查消息通道是否关闭
 func (m *MessageChannel) IsClosed() bool {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 	return m.isClosed
 }
 
+// 写入消息
 func (m *MessageChannel) WriteMessage(msg proto.Message) error {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
@@ -62,7 +67,7 @@ func (m *MessageChannel) WriteMessage(msg proto.Message) error {
 
 	select {
 	case m.msgChan <- msg:
-		// published
+		// published, 只管写入到通道缓冲区
 		return nil
 	default:
 		// channel is full
@@ -70,6 +75,7 @@ func (m *MessageChannel) WriteMessage(msg proto.Message) error {
 	}
 }
 
+// 返回消息通道，只读，方便外部读取消息？
 func (m *MessageChannel) ReadChan() <-chan proto.Message {
 	return m.msgChan
 }

@@ -21,8 +21,8 @@ import (
 // SystemLoadSelector eliminates nodes that surpass has a per-cpu node higher than SysloadLimit
 // then selects a node from nodes that are not overloaded
 type SystemLoadSelector struct {
-	SysloadLimit float32
-	SortBy       string
+	SysloadLimit float32 // 负载限制
+	SortBy       string  // 排序方式
 }
 
 func (s *SystemLoadSelector) filterNodes(nodes []*livekit.Node) ([]*livekit.Node, error) {
@@ -31,6 +31,7 @@ func (s *SystemLoadSelector) filterNodes(nodes []*livekit.Node) ([]*livekit.Node
 		return nil, ErrNoAvailableNodes
 	}
 
+	// 过滤出负载低于限制的节点, 优先挑选出负载低的一些节点
 	nodesLowLoad := make([]*livekit.Node, 0)
 	for _, node := range nodes {
 		if GetNodeSysload(node) < s.SysloadLimit {
