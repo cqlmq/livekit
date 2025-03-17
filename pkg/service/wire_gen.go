@@ -17,14 +17,14 @@ import (
 	"github.com/livekit/protocol/auth"
 	"github.com/livekit/protocol/livekit"
 	"github.com/livekit/protocol/logger"
-	redis2 "github.com/livekit/protocol/redis"
+	"github.com/livekit/protocol/redis"
 	"github.com/livekit/protocol/rpc"
 	"github.com/livekit/protocol/utils"
 	"github.com/livekit/protocol/webhook"
 	"github.com/livekit/psrpc"
 	"github.com/pion/turn/v4"
 	"github.com/pkg/errors"
-	"github.com/redis/go-redis/v9"
+	redis2 "github.com/redis/go-redis/v9"
 	"gopkg.in/yaml.v3"
 	"os"
 )
@@ -35,10 +35,14 @@ import (
 
 // Injectors from wire.go:
 
+// InitializeServer 初始化Livekit服务器
+// changed by limengqiu 2025-03-16 尝试修改redis的参数方式，测试通过
+// 采用：wire ./pkg/service 重新生成wire_gen.go文件
 func InitializeServer(conf *config.Config, currentNode routing.LocalNode) (*LivekitServer, error) {
 	limitConfig := getLimitConf(conf)
 	apiConfig := config.DefaultAPIConfig()
-	universalClient, err := createRedisClient(conf)
+	redisConfig := getRedisConfig(conf)
+	universalClient, err := createRedisClient(redisConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +158,8 @@ func InitializeServer(conf *config.Config, currentNode routing.LocalNode) (*Live
 }
 
 func InitializeRouter(conf *config.Config, currentNode routing.LocalNode) (routing.Router, error) {
-	universalClient, err := createRedisClient(conf)
+	redisConfig := getRedisConfig(conf)
+	universalClient, err := createRedisClient(redisConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -228,22 +233,22 @@ func createWebhookNotifier(conf *config.Config, provider auth.KeyProvider) (webh
 	return webhook.NewDefaultNotifier(wc.APIKey, secret, wc.URLs), nil
 }
 
-func createRedisClient(conf *config.Config) (redis.UniversalClient, error) {
-	if !conf.Redis.IsConfigured() {
+func createRedisClient(conf *redis.RedisConfig) (redis2.UniversalClient, error) {
+	if !conf.IsConfigured() {
 		logger.Debugw("redis not configured, using local store")
 		return nil, nil
 	}
-	return redis2.GetRedisClient(&conf.Redis)
+	return redis.GetRedisClient(conf)
 }
 
-func createStore(rc redis.UniversalClient) ObjectStore {
+func createStore(rc redis2.UniversalClient) ObjectStore {
 	if rc != nil {
 		return NewRedisStore(rc)
 	}
 	return NewLocalStore()
 }
 
-func getMessageBus(rc redis.UniversalClient) psrpc.MessageBus {
+func getMessageBus(rc redis2.UniversalClient) psrpc.MessageBus {
 	if rc == nil {
 		return psrpc.NewLocalMessageBus()
 	}
@@ -294,6 +299,10 @@ func getSIPStore(s ObjectStore) SIPStore {
 
 func getSIPConfig(conf *config.Config) *config.SIPConfig {
 	return &conf.SIP
+}
+
+func getRedisConfig(conf *config.Config) *redis.RedisConfig {
+	return &conf.Redis
 }
 
 func createClientConfiguration() clientconfiguration.ClientConfigurationManager {

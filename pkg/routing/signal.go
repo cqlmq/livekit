@@ -111,7 +111,7 @@ func (r *signalClient) StartParticipantSignal(
 		return
 	}
 
-	sink := NewSignalMessageSink(SignalSinkParams[*rpc.RelaySignalRequest, *rpc.RelaySignalResponse]{
+	params := SignalSinkParams[*rpc.RelaySignalRequest, *rpc.RelaySignalResponse]{
 		Logger:         l,
 		Stream:         stream,
 		Config:         r.config,
@@ -119,7 +119,8 @@ func (r *signalClient) StartParticipantSignal(
 		CloseOnFailure: true,
 		BlockOnClose:   true,
 		ConnectionID:   connectionID,
-	})
+	}
+	sink := NewSignalMessageSink(params)
 	resChan := NewDefaultMessageChannel(connectionID)
 
 	go func() {
@@ -301,7 +302,7 @@ func (s *signalMessageSink[SendType, RecvType]) IsClosed() bool {
 	return s.Stream.Err() != nil
 }
 
-// 写入消息
+// 写入消息(线程方式运行，通过s.writing控制每个对齐同时只启动动一个线程写入)
 func (s *signalMessageSink[SendType, RecvType]) write() {
 	interval := s.Config.MinRetryInterval             // 最小重试间隔
 	deadline := time.Now().Add(s.Config.RetryTimeout) // 重试超时时间

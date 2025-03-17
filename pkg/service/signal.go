@@ -35,7 +35,6 @@ import (
 // counterfeiter:generate . SessionHandler
 type SessionHandler interface {
 	Logger(ctx context.Context) logger.Logger
-	// Logger 返回一个日志记录器, 用于记录日志
 	HandleSession(
 		ctx context.Context,
 		pi routing.ParticipantInit,
@@ -45,11 +44,13 @@ type SessionHandler interface {
 	) error
 }
 
+// SignalServer 定义了信号服务器
 type SignalServer struct {
-	server rpc.TypedSignalServer
-	nodeID livekit.NodeID
+	server rpc.TypedSignalServer // 信号服务器
+	nodeID livekit.NodeID        // 节点ID
 }
 
+// NewSignalServer 创建一个信号服务器
 func NewSignalServer(
 	nodeID livekit.NodeID,
 	region string,
@@ -70,12 +71,13 @@ func NewSignalServer(
 	return &SignalServer{s, nodeID}, nil
 }
 
+// NewDefaultSignalServer 创建一个默认的信号服务器
 func NewDefaultSignalServer(
-	currentNode routing.LocalNode,
-	bus psrpc.MessageBus,
-	config config.SignalRelayConfig,
-	router routing.Router,
-	roomManager *RoomManager,
+	currentNode routing.LocalNode, // 当前节点
+	bus psrpc.MessageBus, // 消息总线
+	config config.SignalRelayConfig, // 信号服务器配置
+	router routing.Router, // 路由器
+	roomManager *RoomManager, // 房间管理器
 ) (r *SignalServer, err error) {
 	return NewSignalServer(currentNode.NodeID(), currentNode.Region(), bus, config, &defaultSessionHandler{currentNode, router, roomManager})
 }

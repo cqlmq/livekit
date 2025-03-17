@@ -15,6 +15,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -338,6 +339,11 @@ func startServer(c *cli.Context) error {
 		return err
 	}
 
+	// 打印目前的配置
+	buf, _ := json.MarshalIndent(conf, "", "  ")
+	fmt.Println("getConfig() after config:")
+	fmt.Println(string(buf))
+
 	// 验证API密钥长度
 	// Validate API key length
 	err = conf.ValidateKeys()
@@ -358,8 +364,8 @@ func startServer(c *cli.Context) error {
 		}
 	}
 
-	// 设置 goroutine profile
-	// add -gcflags=-l=0 to compile flag
+	// 通过发送 SIGUSR1 信号来生成 goroutine profile
+	// 编译时请增加: -gcflags=-l=0 标志
 	// cqlmq 2025-03-09
 	if goroutineProfile := c.String("goroutineprofile"); goroutineProfile != "" {
 		go func() {
@@ -403,10 +409,14 @@ func startServer(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	// 打印当前节点信息
+	buf, _ = currentNode.Marshal()
+	fmt.Println("NewLocalNode() after currentNode:")
+	fmt.Println(string(buf))
 
 	logger.Debugw("current node info", "id", currentNode.NodeID(), "ip", currentNode.NodeIP(), "type", currentNode.NodeType())
 
-	// 初始化Prometheus监控
+	// 初始化Prometheus监控指标
 	// Initialize Prometheus monitoring
 	if err := prometheus.Init(string(currentNode.NodeID()), currentNode.NodeType()); err != nil {
 		return err

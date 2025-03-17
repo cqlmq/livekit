@@ -15,6 +15,7 @@
 package routing
 
 import (
+	"encoding/json"
 	"runtime"
 	"sync"
 	"time"
@@ -168,4 +169,12 @@ func (l *LocalNodeImpl) SecondsSinceNodeStatsUpdate() float64 {
 	defer l.lock.RUnlock()
 
 	return time.Since(time.Unix(l.node.Stats.UpdatedAt, 0)).Seconds()
+}
+
+// 序列化
+func (l *LocalNodeImpl) Marshal() ([]byte, error) {
+	l.lock.RLock()
+	defer l.lock.RUnlock()
+
+	return json.MarshalIndent(l.node, "", "  ")
 }
