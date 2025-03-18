@@ -213,10 +213,12 @@ func (s *LivekitServer) Start() error {
 		}
 	}()
 
+	// 启动路由
 	if err := s.router.Start(); err != nil {
 		return err
 	}
 
+	// 启动IO服务
 	if err := s.ioService.Start(); err != nil {
 		return err
 	}
@@ -230,12 +232,14 @@ func (s *LivekitServer) Start() error {
 	listeners := make([]net.Listener, 0)
 	promListeners := make([]net.Listener, 0)
 	for _, addr := range addresses {
+		// 侦听HTTP服务
 		ln, err := net.Listen("tcp", net.JoinHostPort(addr, strconv.Itoa(int(s.config.Port))))
 		if err != nil {
 			return err
 		}
 		listeners = append(listeners, ln)
 
+		// 侦听Prometheus服务
 		if s.promServer != nil {
 			ln, err = net.Listen("tcp", net.JoinHostPort(addr, strconv.Itoa(int(s.config.Prometheus.Port))))
 			if err != nil {
@@ -275,15 +279,18 @@ func (s *LivekitServer) Start() error {
 		logger.Infow("Windows detected, capacity management is unavailable")
 	}
 
+	// 启动Prometheus服务
 	for _, promLn := range promListeners {
 		go s.promServer.Serve(promLn)
 	}
 
+	// 启动信号服务
 	if err := s.signalServer.Start(); err != nil {
 		return err
 	}
 
 	httpGroup := &errgroup.Group{}
+	// 启动HTTP服务
 	for _, ln := range listeners {
 		l := ln
 		httpGroup.Go(func() error {
@@ -297,7 +304,7 @@ func (s *LivekitServer) Start() error {
 		}
 	}()
 
-	// 定时(1秒)执行关闭空闲房间直到接收到关闭信号后退出协程
+	// 定时服务(1秒)执行关闭空闲房间直到接收到关闭信号后退出协程
 	go s.backgroundWorker()
 
 	// give time for Serve goroutine to start

@@ -234,6 +234,13 @@ func TwirpTelemetry(
 	}
 }
 
+// RecordRequest 记录请求
+// 如果请求为nil，则返回
+// 获取APICallInfo
+// 如果APICallInfo为nil，则返回
+// 根据请求类型，将请求转换为APICallRequest
+// 将请求的房间名称设置为APICallInfo的RoomName
+// 将请求的参与者身份设置为APICallInfo的ParticipantIdentity
 func RecordRequest(ctx context.Context, request proto.Message) {
 	if request == nil {
 		return

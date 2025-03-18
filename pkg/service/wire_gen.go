@@ -38,6 +38,8 @@ import (
 // InitializeServer 初始化Livekit服务器
 // changed by limengqiu 2025-03-16 尝试修改redis的参数方式，测试通过
 // 采用：wire ./pkg/service 重新生成wire_gen.go文件
+// 心得体会：
+// 1、函数需要的参数，必需在wire.Build()中添加，不能使用对象的成员变量
 func InitializeServer(conf *config.Config, currentNode routing.LocalNode) (*LivekitServer, error) {
 	limitConfig := getLimitConf(conf)
 	apiConfig := config.DefaultAPIConfig()
@@ -233,6 +235,7 @@ func createWebhookNotifier(conf *config.Config, provider auth.KeyProvider) (webh
 	return webhook.NewDefaultNotifier(wc.APIKey, secret, wc.URLs), nil
 }
 
+// createRedisClient 获取Redis客户端,
 func createRedisClient(conf *redis.RedisConfig) (redis2.UniversalClient, error) {
 	if !conf.IsConfigured() {
 		logger.Debugw("redis not configured, using local store")
@@ -241,6 +244,7 @@ func createRedisClient(conf *redis.RedisConfig) (redis2.UniversalClient, error) 
 	return redis.GetRedisClient(conf)
 }
 
+// createStore 创建存储,
 func createStore(rc redis2.UniversalClient) ObjectStore {
 	if rc != nil {
 		return NewRedisStore(rc)
@@ -248,6 +252,8 @@ func createStore(rc redis2.UniversalClient) ObjectStore {
 	return NewLocalStore()
 }
 
+// getMessageBus 获取消息总线
+// 另一个项目了解总线的原理与功能
 func getMessageBus(rc redis2.UniversalClient) psrpc.MessageBus {
 	if rc == nil {
 		return psrpc.NewLocalMessageBus()
