@@ -27,10 +27,8 @@ import (
 
 // encapsulates CRUD operations for room settings
 type LocalStore struct {
-	// map of roomName => room
 	rooms        map[livekit.RoomName]*livekit.Room
 	roomInternal map[livekit.RoomName]*livekit.RoomInternal
-	// map of roomName => { identity: participant }
 	participants map[livekit.RoomName]map[livekit.ParticipantIdentity]*livekit.ParticipantInfo
 
 	agentDispatches map[livekit.RoomName]map[string]*livekit.AgentDispatch
@@ -224,10 +222,8 @@ func (s *LocalStore) ListAgentDispatches(ctx context.Context, roomName livekit.R
 	agentJobs := s.agentJobs[roomName]
 
 	var js []*livekit.Job
-	if agentJobs != nil {
-		for _, j := range agentJobs {
-			js = append(js, utils.CloneProto(j))
-		}
+	for _, j := range agentJobs {
+		js = append(js, utils.CloneProto(j))
 	}
 	var ds []*livekit.AgentDispatch
 
