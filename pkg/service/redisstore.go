@@ -82,6 +82,7 @@ type RedisStore struct {
 }
 
 func NewRedisStore(rc redis.UniversalClient) *RedisStore {
+	// 可以理解为：如果Redis中存在该key，则删除该key，否则返回0，原子操作，在分布式环境下，可以保证安全
 	unlockScript := `if redis.call("get", KEYS[1]) == ARGV[1] then
 						return redis.call("del", KEYS[1])
 					 else return 0
@@ -139,17 +140,20 @@ func (s *RedisStore) StoreRoom(_ context.Context, room *livekit.Room, internal *
 		room.CreationTimeMs = now.UnixMilli()
 	}
 
+	// 将Room对象序列化为字节切片
 	roomData, err := proto.Marshal(room)
 	if err != nil {
 		return err
 	}
 
+	// 使用Pipeline批量执行Redis操作
 	pp := s.rc.Pipeline()
+	// 将Room对象存储到Redis哈希表中
 	pp.HSet(s.ctx, RoomsKey, room.Name, roomData)
 
-	var internalData []byte
+	// 如果存在RoomInternal对象，则将其序列化并存储到Redis哈希表中
 	if internal != nil {
-		internalData, err = proto.Marshal(internal)
+		internalData, err := proto.Marshal(internal)
 		if err != nil {
 			return err
 		}
