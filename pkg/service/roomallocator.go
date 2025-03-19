@@ -30,13 +30,16 @@ import (
 	"github.com/livekit/livekit-server/pkg/routing/selector"
 )
 
+// StandardRoomAllocator 标准房间分配器
 type StandardRoomAllocator struct {
-	config    *config.Config
-	router    routing.Router
-	selector  selector.NodeSelector
-	roomStore ObjectStore
+	config    *config.Config        // 配置
+	router    routing.Router        // 路由器
+	selector  selector.NodeSelector // 节点选择器
+	roomStore ObjectStore           // 房间存储
 }
 
+// NewRoomAllocator 创建房间分配器
+// wire_gen.go中调用初始化一个StandardRoomAllocator
 func NewRoomAllocator(conf *config.Config, router routing.Router, rs ObjectStore) (RoomAllocator, error) {
 	ns, err := selector.CreateNodeSelector(conf)
 	if err != nil {
@@ -51,12 +54,16 @@ func NewRoomAllocator(conf *config.Config, router routing.Router, rs ObjectStore
 	}, nil
 }
 
+// AutoCreateEnabled 从配置中获取自动创建房间标志
+// 比较简单，RoomAllocator接口需要实现这个方法
 func (r *StandardRoomAllocator) AutoCreateEnabled(context.Context) bool {
 	return r.config.Room.AutoCreate
 }
 
 // CreateRoom creates a new room from a request and allocates it to a node to handle
 // it'll also monitor its state, and cleans it up when appropriate
+// 创建房间，并分配给一个节点来处理
+// 它会监控房间的状态，并在适当的时候清理它
 func (r *StandardRoomAllocator) CreateRoom(ctx context.Context, req *livekit.CreateRoomRequest, isExplicit bool) (*livekit.Room, *livekit.RoomInternal, bool, error) {
 	token, err := r.roomStore.LockRoom(ctx, livekit.RoomName(req.Name), 5*time.Second)
 	if err != nil {
@@ -131,16 +138,20 @@ func (r *StandardRoomAllocator) CreateRoom(ctx context.Context, req *livekit.Cre
 	return rm, internal, created, nil
 }
 
+// 选择房间节点
 func (r *StandardRoomAllocator) SelectRoomNode(ctx context.Context, roomName livekit.RoomName, nodeID livekit.NodeID) error {
 	// check if room already assigned
+	// 检查房间是否已经分配了节点，如果不存在并且错误类型不是routing.ErrNotFound，则返回错误
 	existing, err := r.router.GetNodeForRoom(ctx, roomName)
 	if !errors.Is(err, routing.ErrNotFound) && err != nil {
 		return err
 	}
 
 	// if already assigned and still available, keep it on that node
+	// 如果房间已经分配了节点，并且节点仍然可用，则保持在该节点上
 	if err == nil && selector.IsAvailable(existing) {
 		// if node hosting the room is full, deny entry
+		// 如果节点承载的房间已满，则拒绝进入
 		if selector.LimitsReached(r.config.Limit, existing.Stats) {
 			return routing.ErrNodeLimitReached
 		}

@@ -36,10 +36,11 @@ const (
 	pingTimeout   = 2 * time.Second
 )
 
+// WSSignalConnection 是WebSocket信号连接的实现
 type WSSignalConnection struct {
-	conn    types.WebsocketClient
-	mu      sync.Mutex
-	useJSON bool
+	conn    types.WebsocketClient // 底层WebSocket连接
+	mu      sync.Mutex            // 互斥锁，用于保护共享资源
+	useJSON bool                  // 是否使用JSON格式
 }
 
 func NewWSSignalConnection(conn types.WebsocketClient) *WSSignalConnection {
@@ -74,12 +75,12 @@ func (c *WSSignalConnection) ReadRequest() (*livekit.SignalRequest, int, error) 
 		msg := &livekit.SignalRequest{}
 		switch messageType {
 		case websocket.BinaryMessage:
+			c.mu.Lock()
 			if c.useJSON {
-				c.mu.Lock()
 				// switch to protobuf if client supports it
 				c.useJSON = false
-				c.mu.Unlock()
 			}
+			c.mu.Unlock()
 			// protobuf encoded
 			err := proto.Unmarshal(payload, msg)
 			return msg, len(payload), err
@@ -97,6 +98,9 @@ func (c *WSSignalConnection) ReadRequest() (*livekit.SignalRequest, int, error) 
 	}
 }
 
+// 从WebSocket读取消息
+// 如果读取失败，则返回错误
+// 根据消息类型，选择使用JSON或Protobuf解码，解码为WorkerMessage，并返回消息类型和消息长度
 func (c *WSSignalConnection) ReadWorkerMessage() (*livekit.WorkerMessage, int, error) {
 	for {
 		// handle special messages and pass on the rest
@@ -108,12 +112,12 @@ func (c *WSSignalConnection) ReadWorkerMessage() (*livekit.WorkerMessage, int, e
 		msg := &livekit.WorkerMessage{}
 		switch messageType {
 		case websocket.BinaryMessage:
+			c.mu.Lock()
 			if c.useJSON {
-				c.mu.Lock()
 				// switch to protobuf if client supports it
 				c.useJSON = false
-				c.mu.Unlock()
 			}
+			c.mu.Unlock()
 			// protobuf encoded
 			err := proto.Unmarshal(payload, msg)
 			return msg, len(payload), err
@@ -131,6 +135,8 @@ func (c *WSSignalConnection) ReadWorkerMessage() (*livekit.WorkerMessage, int, e
 	}
 }
 
+// 写入响应消息
+// mu 可以防止多个goroutine同时写入
 func (c *WSSignalConnection) WriteResponse(msg *livekit.SignalResponse) (int, error) {
 	var msgType int
 	var payload []byte
@@ -153,6 +159,7 @@ func (c *WSSignalConnection) WriteResponse(msg *livekit.SignalResponse) (int, er
 	return len(payload), c.conn.WriteMessage(msgType, payload)
 }
 
+// 写入服务器消息
 func (c *WSSignalConnection) WriteServerMessage(msg *livekit.ServerMessage) (int, error) {
 	var msgType int
 	var payload []byte
@@ -175,6 +182,7 @@ func (c *WSSignalConnection) WriteServerMessage(msg *livekit.ServerMessage) (int
 	return len(payload), c.conn.WriteMessage(msgType, payload)
 }
 
+// 定期发送ping消息
 func (c *WSSignalConnection) pingWorker() {
 	ticker := time.NewTicker(pingFrequency)
 	defer ticker.Stop()
@@ -188,15 +196,16 @@ func (c *WSSignalConnection) pingWorker() {
 }
 
 // IsWebSocketCloseError checks that error is normal/expected closure
+// 检查错误是否是正常/预期的关闭
 func IsWebSocketCloseError(err error) bool {
 	return errors.Is(err, io.EOF) ||
 		strings.HasSuffix(err.Error(), "use of closed network connection") ||
 		strings.HasSuffix(err.Error(), "connection reset by peer") ||
 		websocket.IsCloseError(
 			err,
-			websocket.CloseAbnormalClosure,
-			websocket.CloseGoingAway,
-			websocket.CloseNormalClosure,
-			websocket.CloseNoStatusReceived,
+			websocket.CloseAbnormalClosure,  // 异常关闭
+			websocket.CloseGoingAway,        // 正常关闭
+			websocket.CloseNormalClosure,    // 正常关闭
+			websocket.CloseNoStatusReceived, // 正常关闭
 		)
 }

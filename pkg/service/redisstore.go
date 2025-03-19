@@ -68,6 +68,12 @@ const (
 	maxRetries = 5
 )
 
+// RedisStore 是Redis存储的实现
+// 它实现了ObjectStore接口, 包括继承的ServiceStore接口
+// 它还实现了SIPStore接口
+// 它还实现了AgentStore接口
+// 它还实现了IngressStore接口
+// 它还实现了EgressStore接口
 type RedisStore struct {
 	rc           redis.UniversalClient
 	unlockScript *redis.Script
@@ -88,6 +94,7 @@ func NewRedisStore(rc redis.UniversalClient) *RedisStore {
 	}
 }
 
+// Start 启动RedisStore
 func (s *RedisStore) Start() error {
 	if s.done != nil {
 		return nil
@@ -114,6 +121,7 @@ func (s *RedisStore) Start() error {
 	return nil
 }
 
+// Stop 停止RedisStore
 func (s *RedisStore) Stop() {
 	select {
 	case <-s.done:
@@ -122,6 +130,8 @@ func (s *RedisStore) Stop() {
 	}
 }
 
+// StoreRoom 存储房间
+// 实现了ObjectStore接口
 func (s *RedisStore) StoreRoom(_ context.Context, room *livekit.Room, internal *livekit.RoomInternal) error {
 	if room.CreationTime == 0 {
 		now := time.Now()
@@ -154,6 +164,8 @@ func (s *RedisStore) StoreRoom(_ context.Context, room *livekit.Room, internal *
 	return nil
 }
 
+// LoadRoom 加载房间
+// 实现了ObjectStore->ServiceStore接口
 func (s *RedisStore) LoadRoom(_ context.Context, roomName livekit.RoomName, includeInternal bool) (*livekit.Room, *livekit.RoomInternal, error) {
 	pp := s.rc.Pipeline()
 	pp.HGet(s.ctx, RoomsKey, string(roomName))
@@ -195,6 +207,8 @@ func (s *RedisStore) LoadRoom(_ context.Context, roomName livekit.RoomName, incl
 	return room, internal, nil
 }
 
+// ListRooms 列出房间
+// 实现了ServiceStore接口
 func (s *RedisStore) ListRooms(_ context.Context, roomNames []livekit.RoomName) ([]*livekit.Room, error) {
 	var items []string
 	var err error
@@ -230,6 +244,8 @@ func (s *RedisStore) ListRooms(_ context.Context, roomNames []livekit.RoomName) 
 	return rooms, nil
 }
 
+// DeleteRoom 删除房间
+// 实现了ObjectStore->ServiceStore接口
 func (s *RedisStore) DeleteRoom(ctx context.Context, roomName livekit.RoomName) error {
 	_, _, err := s.LoadRoom(ctx, roomName, false)
 	if err == ErrRoomNotFound {
@@ -247,6 +263,8 @@ func (s *RedisStore) DeleteRoom(ctx context.Context, roomName livekit.RoomName) 
 	return err
 }
 
+// LockRoom 锁定房间
+// 实现了ObjectStore接口
 func (s *RedisStore) LockRoom(_ context.Context, roomName livekit.RoomName, duration time.Duration) (string, error) {
 	token := guid.New("LOCK")
 	key := RoomLockPrefix + string(roomName)
@@ -272,6 +290,8 @@ func (s *RedisStore) LockRoom(_ context.Context, roomName livekit.RoomName, dura
 	return "", ErrRoomLockFailed
 }
 
+// UnlockRoom 解锁房间
+// 实现了ObjectStore接口
 func (s *RedisStore) UnlockRoom(_ context.Context, roomName livekit.RoomName, uid string) error {
 	key := RoomLockPrefix + string(roomName)
 	res, err := s.unlockScript.Run(s.ctx, s.rc, []string{key}, uid).Result()
@@ -287,6 +307,8 @@ func (s *RedisStore) UnlockRoom(_ context.Context, roomName livekit.RoomName, ui
 	return nil
 }
 
+// StoreParticipant 存储参与者
+// 实现了ObjectStore接口
 func (s *RedisStore) StoreParticipant(_ context.Context, roomName livekit.RoomName, participant *livekit.ParticipantInfo) error {
 	key := RoomParticipantsPrefix + string(roomName)
 
@@ -298,6 +320,8 @@ func (s *RedisStore) StoreParticipant(_ context.Context, roomName livekit.RoomNa
 	return s.rc.HSet(s.ctx, key, participant.Identity, data).Err()
 }
 
+// LoadParticipant 加载参与者
+// 实现了ServiceStore接口
 func (s *RedisStore) LoadParticipant(_ context.Context, roomName livekit.RoomName, identity livekit.ParticipantIdentity) (*livekit.ParticipantInfo, error) {
 	key := RoomParticipantsPrefix + string(roomName)
 	data, err := s.rc.HGet(s.ctx, key, string(identity)).Result()
@@ -314,6 +338,8 @@ func (s *RedisStore) LoadParticipant(_ context.Context, roomName livekit.RoomNam
 	return &pi, nil
 }
 
+// ListParticipants 列出参与者
+// 实现了ServiceStore接口
 func (s *RedisStore) ListParticipants(_ context.Context, roomName livekit.RoomName) ([]*livekit.ParticipantInfo, error) {
 	key := RoomParticipantsPrefix + string(roomName)
 	items, err := s.rc.HVals(s.ctx, key).Result()
@@ -334,12 +360,16 @@ func (s *RedisStore) ListParticipants(_ context.Context, roomName livekit.RoomNa
 	return participants, nil
 }
 
+// DeleteParticipant 删除参与者
+// 实现了ObjectStore接口
 func (s *RedisStore) DeleteParticipant(_ context.Context, roomName livekit.RoomName, identity livekit.ParticipantIdentity) error {
 	key := RoomParticipantsPrefix + string(roomName)
 
 	return s.rc.HDel(s.ctx, key, string(identity)).Err()
 }
 
+// StoreEgress 存储Egress
+// 实现了EgressStore接口
 func (s *RedisStore) StoreEgress(_ context.Context, info *livekit.EgressInfo) error {
 	data, err := proto.Marshal(info)
 	if err != nil {
@@ -356,6 +386,8 @@ func (s *RedisStore) StoreEgress(_ context.Context, info *livekit.EgressInfo) er
 	return nil
 }
 
+// LoadEgress 加载Egress
+// 实现了EgressStore接口
 func (s *RedisStore) LoadEgress(_ context.Context, egressID string) (*livekit.EgressInfo, error) {
 	data, err := s.rc.HGet(s.ctx, EgressKey, egressID).Result()
 	switch err {
@@ -375,6 +407,8 @@ func (s *RedisStore) LoadEgress(_ context.Context, egressID string) (*livekit.Eg
 	}
 }
 
+// ListEgress 列出Egress
+// 实现了EgressStore接口
 func (s *RedisStore) ListEgress(_ context.Context, roomName livekit.RoomName, active bool) ([]*livekit.EgressInfo, error) {
 	var infos []*livekit.EgressInfo
 
@@ -429,6 +463,8 @@ func (s *RedisStore) ListEgress(_ context.Context, roomName livekit.RoomName, ac
 	return infos, nil
 }
 
+// UpdateEgress 更新Egress
+// 实现了EgressStore接口
 func (s *RedisStore) UpdateEgress(_ context.Context, info *livekit.EgressInfo) error {
 	data, err := proto.Marshal(info)
 	if err != nil {
@@ -452,6 +488,7 @@ func (s *RedisStore) UpdateEgress(_ context.Context, info *livekit.EgressInfo) e
 }
 
 // Deletes egress info 24h after the egress has ended
+// 定期清理结束超过24小时的Egress信息
 func (s *RedisStore) egressWorker() {
 	ticker := time.NewTicker(time.Minute * 30)
 	defer ticker.Stop()
@@ -469,6 +506,7 @@ func (s *RedisStore) egressWorker() {
 	}
 }
 
+// CleanEndedEgress 清理结束超过24小时的Egress信息
 func (s *RedisStore) CleanEndedEgress() error {
 	values, err := s.rc.HGetAll(s.ctx, EndedEgressKey).Result()
 	if err != nil && err != redis.Nil {
@@ -497,10 +535,12 @@ func (s *RedisStore) CleanEndedEgress() error {
 	return nil
 }
 
+// egressEndedValue 返回房间名称和结束时间的格式化字符串，格式为"roomName|endedAt"
 func egressEndedValue(roomName string, endedAt int64) string {
 	return fmt.Sprintf("%s|%d", roomName, endedAt)
 }
 
+// parseEgressEnded 解析存储的Egress结束信息，返回房间名称和结束时间
 func parseEgressEnded(value string) (roomName string, endedAt int64, err error) {
 	s := strings.Split(value, "|")
 	if len(s) != 2 {
@@ -513,6 +553,8 @@ func parseEgressEnded(value string) (roomName string, endedAt int64, err error) 
 	return
 }
 
+// StoreIngress 存储Ingress
+// 实现了IngressStore接口
 func (s *RedisStore) StoreIngress(ctx context.Context, info *livekit.IngressInfo) error {
 	err := s.storeIngress(ctx, info)
 	if err != nil {
@@ -522,6 +564,7 @@ func (s *RedisStore) StoreIngress(ctx context.Context, info *livekit.IngressInfo
 	return s.storeIngressState(ctx, info.IngressId, nil)
 }
 
+// storeIngress 存储Ingress
 func (s *RedisStore) storeIngress(_ context.Context, info *livekit.IngressInfo) error {
 	if info.IngressId == "" {
 		return errors.New("Missing IngressId")
@@ -599,6 +642,7 @@ func (s *RedisStore) storeIngress(_ context.Context, info *livekit.IngressInfo) 
 	return nil
 }
 
+// storeIngressState 存储Ingress状态
 func (s *RedisStore) storeIngressState(_ context.Context, ingressId string, state *livekit.IngressState) error {
 	if ingressId == "" {
 		return errors.New("Missing IngressId")
@@ -674,6 +718,7 @@ func (s *RedisStore) storeIngressState(_ context.Context, ingressId string, stat
 	return nil
 }
 
+// loadIngress 加载Ingress
 func (s *RedisStore) loadIngress(c redis.Cmdable, ingressId string) (*livekit.IngressInfo, error) {
 	data, err := c.HGet(s.ctx, IngressKey, ingressId).Result()
 	switch err {
@@ -693,6 +738,7 @@ func (s *RedisStore) loadIngress(c redis.Cmdable, ingressId string) (*livekit.In
 	}
 }
 
+// loadIngressState 加载Ingress状态
 func (s *RedisStore) loadIngressState(c redis.Cmdable, ingressId string) (*livekit.IngressState, error) {
 	data, err := c.Get(s.ctx, IngressStatePrefix+ingressId).Result()
 	switch err {
@@ -712,6 +758,8 @@ func (s *RedisStore) loadIngressState(c redis.Cmdable, ingressId string) (*livek
 	}
 }
 
+// LoadIngress 加载Ingress
+// 实现了IngressStore接口
 func (s *RedisStore) LoadIngress(_ context.Context, ingressId string) (*livekit.IngressInfo, error) {
 	info, err := s.loadIngress(s.rc, ingressId)
 	if err != nil {
@@ -730,6 +778,8 @@ func (s *RedisStore) LoadIngress(_ context.Context, ingressId string) (*livekit.
 	return info, nil
 }
 
+// LoadIngressFromStreamKey 通过流密钥加载Ingress信息
+// 实现了IngressStore接口
 func (s *RedisStore) LoadIngressFromStreamKey(_ context.Context, streamKey string) (*livekit.IngressInfo, error) {
 	ingressID, err := s.rc.HGet(s.ctx, StreamKeyKey, streamKey).Result()
 	switch err {
@@ -744,6 +794,8 @@ func (s *RedisStore) LoadIngressFromStreamKey(_ context.Context, streamKey strin
 	}
 }
 
+// ListIngress 列出Ingress
+// 实现了IngressStore接口
 func (s *RedisStore) ListIngress(_ context.Context, roomName livekit.RoomName) ([]*livekit.IngressInfo, error) {
 	var infos []*livekit.IngressInfo
 
@@ -810,14 +862,20 @@ func (s *RedisStore) ListIngress(_ context.Context, roomName livekit.RoomName) (
 	return infos, nil
 }
 
+// UpdateIngress 更新Ingress
+// 实现了IngressStore接口
 func (s *RedisStore) UpdateIngress(ctx context.Context, info *livekit.IngressInfo) error {
 	return s.storeIngress(ctx, info)
 }
 
+// UpdateIngressState 更新Ingress状态
+// 实现了IngressStore接口
 func (s *RedisStore) UpdateIngressState(ctx context.Context, ingressId string, state *livekit.IngressState) error {
 	return s.storeIngressState(ctx, ingressId, state)
 }
 
+// DeleteIngress 删除Ingress
+// 实现了IngressStore接口
 func (s *RedisStore) DeleteIngress(_ context.Context, info *livekit.IngressInfo) error {
 	tx := s.rc.TxPipeline()
 	tx.SRem(s.ctx, RoomIngressPrefix+info.RoomName, info.IngressId)
@@ -833,6 +891,8 @@ func (s *RedisStore) DeleteIngress(_ context.Context, info *livekit.IngressInfo)
 	return nil
 }
 
+// StoreAgentDispatch 存储AgentDispatch
+// 实现了AgentStore接口
 func (s *RedisStore) StoreAgentDispatch(_ context.Context, dispatch *livekit.AgentDispatch) error {
 	di := utils.CloneProto(dispatch)
 
@@ -852,11 +912,15 @@ func (s *RedisStore) StoreAgentDispatch(_ context.Context, dispatch *livekit.Age
 }
 
 // This will not delete the jobs created by the dispatch
+// 删除AgentDispatch
+// 实现了AgentStore接口
 func (s *RedisStore) DeleteAgentDispatch(_ context.Context, dispatch *livekit.AgentDispatch) error {
 	key := AgentDispatchPrefix + string(dispatch.Room)
 	return s.rc.HDel(s.ctx, key, dispatch.Id).Err()
 }
 
+// ListAgentDispatches 列出AgentDispatch
+// 实现了AgentStore接口
 func (s *RedisStore) ListAgentDispatches(_ context.Context, roomName livekit.RoomName) ([]*livekit.AgentDispatch, error) {
 	key := AgentDispatchPrefix + string(roomName)
 	dispatches, err := redisLoadAll[livekit.AgentDispatch](s.ctx, s, key)
@@ -890,6 +954,8 @@ func (s *RedisStore) ListAgentDispatches(_ context.Context, roomName livekit.Roo
 	return dispatches, nil
 }
 
+// StoreAgentJob 存储AgentJob
+// 实现了AgentStore接口
 func (s *RedisStore) StoreAgentJob(_ context.Context, job *livekit.Job) error {
 	if job.Room == nil {
 		return psrpc.NewErrorf(psrpc.InvalidArgument, "job doesn't have a valid Room field")
@@ -917,6 +983,8 @@ func (s *RedisStore) StoreAgentJob(_ context.Context, job *livekit.Job) error {
 	return s.rc.HSet(s.ctx, key, job.Id, data).Err()
 }
 
+// DeleteAgentJob 删除AgentJob
+// 实现了AgentStore接口
 func (s *RedisStore) DeleteAgentJob(_ context.Context, job *livekit.Job) error {
 	if job.Room == nil {
 		return psrpc.NewErrorf(psrpc.InvalidArgument, "job doesn't have a valid Room field")
@@ -926,6 +994,7 @@ func (s *RedisStore) DeleteAgentJob(_ context.Context, job *livekit.Job) error {
 	return s.rc.HDel(s.ctx, key, job.Id).Err()
 }
 
+// redisStoreOne 存储一个对象
 func redisStoreOne(ctx context.Context, s *RedisStore, key, id string, p proto.Message) error {
 	if id == "" {
 		return errors.New("id is not set")
@@ -937,11 +1006,13 @@ func redisStoreOne(ctx context.Context, s *RedisStore, key, id string, p proto.M
 	return s.rc.HSet(s.ctx, key, id, data).Err()
 }
 
+// protoMsg 是proto.Message的类型约束
 type protoMsg[T any] interface {
 	*T
 	proto.Message
 }
 
+// redisLoadOne 从Redis加载单个对象，返回指定类型的proto消息
 func redisLoadOne[T any, P protoMsg[T]](ctx context.Context, s *RedisStore, key, id string, notFoundErr error) (P, error) {
 	data, err := s.rc.HGet(s.ctx, key, id).Result()
 	if err == redis.Nil {
@@ -957,6 +1028,7 @@ func redisLoadOne[T any, P protoMsg[T]](ctx context.Context, s *RedisStore, key,
 	return p, err
 }
 
+// redisLoadAll 从Redis加载所有对象，返回指定类型的proto消息列表
 func redisLoadAll[T any, P protoMsg[T]](ctx context.Context, s *RedisStore, key string) ([]P, error) {
 	data, err := s.rc.HVals(s.ctx, key).Result()
 	if err == redis.Nil {
@@ -977,6 +1049,8 @@ func redisLoadAll[T any, P protoMsg[T]](ctx context.Context, s *RedisStore, key 
 	return list, nil
 }
 
+// redisLoadBatch 从Redis按ID批量加载对象，返回指定类型的proto消息列表
+// 如果keepEmpty为true，则保持返回结果的顺序与IDs列表一致，不存在的ID对应的位置返回零值
 func redisLoadBatch[T any, P protoMsg[T]](ctx context.Context, s *RedisStore, key string, ids []string, keepEmpty bool) ([]P, error) {
 	data, err := s.rc.HMGet(s.ctx, key, ids...).Result()
 	if err == redis.Nil {
@@ -1014,6 +1088,7 @@ func redisLoadBatch[T any, P protoMsg[T]](ctx context.Context, s *RedisStore, ke
 	return list, nil
 }
 
+// redisIDs 返回Redis哈希中的所有键，并按照字典顺序排序
 func redisIDs(ctx context.Context, s *RedisStore, key string) ([]string, error) {
 	list, err := s.rc.HKeys(s.ctx, key).Result()
 	if err == redis.Nil {
@@ -1025,11 +1100,15 @@ func redisIDs(ctx context.Context, s *RedisStore, key string) ([]string, error) 
 	return list, nil
 }
 
+// protoEntity 是集成了ID()方法的proto消息接口，用于支持按ID进行排序和操作
 type protoEntity[T any] interface {
 	protoMsg[T]
 	ID() string
 }
 
+// redisIterPage 从Redis中分页加载对象，支持分页偏移和数量限制
+// 如果page.AfterId不为空，则从该ID之后开始查询
+// 如果page.Limit大于0，则限制返回的最大数量
 func redisIterPage[T any, P protoEntity[T]](ctx context.Context, s *RedisStore, key string, page *livekit.Pagination) ([]P, error) {
 	if page == nil {
 		return redisLoadAll[T, P](ctx, s, key)
@@ -1061,12 +1140,14 @@ func redisIterPage[T any, P protoEntity[T]](ctx context.Context, s *RedisStore, 
 	return redisLoadBatch[T, P](ctx, s, key, ids, false)
 }
 
+// sortProtos 对proto消息数组按照ID进行字典序排序
 func sortProtos[T any, P protoEntity[T]](arr []P) {
 	slices.SortFunc(arr, func(a, b P) int {
 		return strings.Compare(a.ID(), b.ID())
 	})
 }
 
+// sortPage 对proto消息数组按照ID进行排序，并根据分页参数限制返回结果数量
 func sortPage[T any, P protoEntity[T]](items []P, page *livekit.Pagination) []P {
 	sortProtos(items)
 	if page != nil {

@@ -54,6 +54,7 @@ func IsValidDomain(domain string) bool {
 	return domainRegexp.MatchString(domain)
 }
 
+// 获取客户端真实IP地址，先检查Cloudflare头，如果检查失败，则使用X-Forwarded-For头
 func GetClientIP(r *http.Request) string {
 	// CF proxy typically is first thing the user reaches
 	if ip := r.Header.Get("CF-Connecting-IP"); ip != "" {
@@ -69,6 +70,7 @@ func GetClientIP(r *http.Request) string {
 	return ip
 }
 
+// 设置房间配置
 func SetRoomConfiguration(createRequest *livekit.CreateRoomRequest, conf *livekit.RoomConfiguration) {
 	if conf == nil {
 		return
