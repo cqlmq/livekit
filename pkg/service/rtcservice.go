@@ -104,6 +104,15 @@ func (s *RTCService) validate(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte("success"))
 }
 
+// 验证请求
+// 返回：房间名，参与者初始化信息，HTTP状态码，错误
+// 负责验证参与者的身份和权限，确保只有授权用户才能加入房间。
+// 1. 获取授权信息
+// 2. 确保参与者有加入房间的权限
+// 3. 确保参与者身份信息有效
+// 4. 确保参与者身份信息长度不超过限制
+// 5. 确保房间名有效
+// 6. 确保参与者有重连权限
 func (s *RTCService) validateInternal(r *http.Request) (livekit.RoomName, routing.ParticipantInit, int, error) {
 	claims := GetGrants(r.Context())
 	var pi routing.ParticipantInit
@@ -213,11 +222,13 @@ func (s *RTCService) validateInternal(r *http.Request) (livekit.RoomName, routin
 
 func (s *RTCService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// reject non websocket requests
+	// 如果请求不是WebSocket升级请求，则返回404
 	if !websocket.IsWebSocketUpgrade(r) {
 		w.WriteHeader(404)
 		return
 	}
 
+	// 验证请求
 	roomName, pi, code, err := s.validateInternal(r)
 	if err != nil {
 		handleError(w, r, code, err)
@@ -233,18 +244,20 @@ func (s *RTCService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	pLogger := utils.GetLogger(r.Context()).WithValues(loggerFields...)
 
 	// give it a few attempts to start session
+	// 给几次尝试来启动会话
 	var cr connectionResult
 	var initialResponse *livekit.SignalResponse
 	for attempt := 0; attempt < s.config.SignalRelay.ConnectAttempts; attempt++ {
-		connectionTimeout := 3 * time.Second * time.Duration(attempt+1)
-		ctx := utils.ContextWithAttempt(r.Context(), attempt)
-		cr, initialResponse, err = s.startConnection(ctx, roomName, pi, connectionTimeout)
-		if err == nil || errors.Is(err, context.Canceled) {
+		connectionTimeout := 3 * time.Second * time.Duration(attempt+1)                    // 连接超时时间, 3秒, 6秒, 9秒 ..
+		ctx := utils.ContextWithAttempt(r.Context(), attempt)                              // 上下文, 将尝试次数添加到上下文中
+		cr, initialResponse, err = s.startConnection(ctx, roomName, pi, connectionTimeout) // 启动连接，返回连接结果，初始响应，错误
+		if err == nil || errors.Is(err, context.Canceled) {                                // 如果连接成功或被取消，则退出
 			break
 		}
 	}
 
 	if err != nil {
+		// 如果连接失败，则增加失败计数
 		prometheus.IncrementParticipantJoinFail(1)
 		status := http.StatusInternalServerError
 		var psrpcErr psrpc.Error
@@ -255,17 +268,24 @@ func (s *RTCService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 增加连接计数
 	prometheus.IncrementParticipantJoin(1)
 
+	// 如果连接不是重连，并且初始响应有加入信息，则设置参与者ID
 	if !pi.Reconnect && initialResponse.GetJoin() != nil {
 		pi.ID = livekit.ParticipantID(initialResponse.GetJoin().GetParticipant().GetSid())
 	}
 
+	// 创建信号统计
 	signalStats := telemetry.NewBytesSignalStats(r.Context(), s.telemetry)
+
+	// 如果初始响应有加入信息，则解析房间和参与者
 	if join := initialResponse.GetJoin(); join != nil {
 		signalStats.ResolveRoom(join.GetRoom())
 		signalStats.ResolveParticipant(join.GetParticipant())
 	}
+
+	// 如果连接是重连，并且参与者ID不为空，则解析参与者
 	if pi.Reconnect && pi.ID != "" {
 		signalStats.ResolveParticipant(&livekit.ParticipantInfo{
 			Sid:      string(pi.ID),
@@ -273,22 +293,24 @@ func (s *RTCService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	closedByClient := atomic.NewBool(false)
-	done := make(chan struct{})
+	closedByClient := atomic.NewBool(false) // 客户端关闭连接标示
+	done := make(chan struct{})             // 通道，用于关闭连接，控制子协程的退出
 	// function exits when websocket terminates, it'll close the event reading off of request sink and response source as well
+	// 当WebSocket终止时，函数退出，它会关闭请求源和响应源的读取事件
 	defer func() {
 		pLogger.Debugw("finishing WS connection",
 			"connID", cr.ConnectionID,
 			"closedByClient", closedByClient.Load(),
 		)
-		cr.ResponseSource.Close()
-		cr.RequestSink.Close()
-		close(done)
+		cr.ResponseSource.Close() // 关闭响应源
+		cr.RequestSink.Close()    // 关闭请求源
+		close(done)               // 关闭通道
 
-		signalStats.Stop()
+		signalStats.Stop() // 停止信号统计
 	}()
 
 	// upgrade only once the basics are good to go
+	// 升级WebSocket连接
 	conn, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		handleError(w, r, http.StatusInternalServerError, err, loggerFields...)
@@ -296,24 +318,25 @@ func (s *RTCService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.mu.Lock()
-	s.connections[conn] = struct{}{}
+	s.connections[conn] = struct{}{} // 将连接添加到连接池
 	s.mu.Unlock()
 
 	defer func() {
 		s.mu.Lock()
-		delete(s.connections, conn)
+		delete(s.connections, conn) // 从连接池中删除连接
 		s.mu.Unlock()
 	}()
 
 	// websocket established
-	sigConn := NewWSSignalConnection(conn)
-	count, err := sigConn.WriteResponse(initialResponse)
+	sigConn := NewWSSignalConnection(conn)               // 创建信号连接
+	count, err := sigConn.WriteResponse(initialResponse) // 写入初始响应
 	if err != nil {
 		pLogger.Warnw("could not write initial response", err)
 		return
 	}
-	signalStats.AddBytes(uint64(count), true)
+	signalStats.AddBytes(uint64(count), true) // 添加字节统计（true表示写入/发送）
 
+	// 调试日志, 到此为止，连接已经建立
 	pLogger.Debugw("new client WS connected",
 		"connID", cr.ConnectionID,
 		"reconnect", pi.Reconnect,
@@ -324,29 +347,33 @@ func (s *RTCService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	)
 
 	// handle responses
+	// 处理响应，从响应源读取消息，并写入WebSocket
 	go func() {
 		defer func() {
 			// when the source is terminated, this means Participant.Close had been called and RTC connection is done
 			// we would terminate the signal connection as well
+			// 当源终止时，这意味着Participant.Close已经调用，RTC连接完成
+			// 我们也会终止信号连接
 			closeMsg := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")
 			_ = conn.WriteControl(websocket.CloseMessage, closeMsg, time.Now().Add(time.Second))
 			_ = conn.Close()
 		}()
 		defer func() {
+			// 如果发生恐慌，则退出
 			if r := rtc.Recover(pLogger); r != nil {
 				os.Exit(1)
 			}
 		}()
 		for {
 			select {
-			case <-done:
+			case <-done: // 通道关闭，退出
 				return
-			case msg := <-cr.ResponseSource.ReadChan():
+			case msg := <-cr.ResponseSource.ReadChan(): // 从响应源读取消息
 				if msg == nil {
 					pLogger.Debugw("nothing to read from response source", "connID", cr.ConnectionID)
 					return
 				}
-				res, ok := msg.(*livekit.SignalResponse)
+				res, ok := msg.(*livekit.SignalResponse) // 断言消息类型为SignalResponse
 				if !ok {
 					pLogger.Errorw(
 						"unexpected message type", nil,
@@ -356,22 +383,24 @@ func (s *RTCService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 
+				// 处理消息，根据消息类型进行处理
 				switch m := res.Message.(type) {
-				case *livekit.SignalResponse_Offer:
+				case *livekit.SignalResponse_Offer: // 处理Offer消息
 					pLogger.Debugw("sending offer", "offer", m)
-				case *livekit.SignalResponse_Answer:
+				case *livekit.SignalResponse_Answer: // 处理Answer消息
 					pLogger.Debugw("sending answer", "answer", m)
-				case *livekit.SignalResponse_Join:
+				case *livekit.SignalResponse_Join: // 处理Join消息
 					pLogger.Debugw("sending join", "join", m)
 					signalStats.ResolveRoom(m.Join.GetRoom())
 					signalStats.ResolveParticipant(m.Join.GetParticipant())
-				case *livekit.SignalResponse_RoomUpdate:
+				case *livekit.SignalResponse_RoomUpdate: // 处理RoomUpdate消息
 					pLogger.Debugw("sending room update", "roomUpdate", m)
 					signalStats.ResolveRoom(m.RoomUpdate.GetRoom())
-				case *livekit.SignalResponse_Update:
+				case *livekit.SignalResponse_Update: // 处理Update消息
 					pLogger.Debugw("sending participant update", "participantUpdate", m)
 				}
 
+				// 写入WebSocket，并添加字节统计
 				if count, err := sigConn.WriteResponse(res); err != nil {
 					pLogger.Warnw("error writing to websocket", err)
 					return
@@ -383,6 +412,7 @@ func (s *RTCService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// handle incoming requests from websocket
+	// 从WebSocket读取请求，并写入请求源
 	for {
 		req, count, err := sigConn.ReadRequest()
 		if err != nil {
@@ -393,28 +423,32 @@ func (s *RTCService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
-		signalStats.AddBytes(uint64(count), false)
+		signalStats.AddBytes(uint64(count), false) // 添加字节统计（false表示读取/接收）
 
 		switch m := req.Message.(type) {
 		case *livekit.SignalRequest_Ping:
+			// 写入Pong响应
 			count, perr := sigConn.WriteResponse(&livekit.SignalResponse{
 				Message: &livekit.SignalResponse_Pong{
 					//
 					// Although this field is int64, some clients (like JS) cause overflow if nanosecond granularity is used.
+					// 虽然这个字段是int64，但一些客户端（如JS）在纳秒粒度下会导致溢出。
 					// So. use UnixMillis().
-					//
-					Pong: time.Now().UnixMilli(),
+					// 所以，使用UnixMillis()。
+					// 作用：返回当前时间戳，对方收到后，可以计算出Pong延迟
+					Pong: time.Now().UnixMilli(), // 毫秒，防止溢出
 				},
 			})
 			if perr == nil {
 				signalStats.AddBytes(uint64(count), true)
 			}
 		case *livekit.SignalRequest_PingReq:
+			// 写入PongResp响应
 			count, perr := sigConn.WriteResponse(&livekit.SignalResponse{
 				Message: &livekit.SignalResponse_PongResp{
 					PongResp: &livekit.Pong{
-						LastPingTimestamp: m.PingReq.Timestamp,
-						Timestamp:         time.Now().UnixMilli(),
+						LastPingTimestamp: m.PingReq.Timestamp,    // 作用：返回最后一次Ping的时间戳，对方收到后，可以计算出Ping延迟
+						Timestamp:         time.Now().UnixMilli(), // 作用：返回当前时间戳，对方收到后，可以计算出Pong延迟
 					},
 				},
 			})
@@ -430,6 +464,7 @@ func (s *RTCService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			pLogger.Debugw("received answer", "answer", m)
 		}
 
+		// 将消息写入请求源（进行实际的业务处理？）
 		if err := cr.RequestSink.WriteMessage(req); err != nil {
 			pLogger.Warnw("error writing to request sink", err, "connID", cr.ConnectionID)
 			return
@@ -437,6 +472,7 @@ func (s *RTCService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// 解析客户端信息
 func (s *RTCService) ParseClientInfo(r *http.Request) *livekit.ClientInfo {
 	values := r.Form
 	ci := &livekit.ClientInfo{}

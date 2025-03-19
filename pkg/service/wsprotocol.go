@@ -60,6 +60,9 @@ func (c *WSSignalConnection) SetReadDeadline(deadline time.Time) error {
 	return c.conn.SetReadDeadline(deadline)
 }
 
+// 从WebSocket读取消息
+// 如果读取失败，则返回错误
+// 根据消息类型，选择使用JSON或Protobuf解码，解码为SignalRequest，并返回消息类型和消息长度
 func (c *WSSignalConnection) ReadRequest() (*livekit.SignalRequest, int, error) {
 	for {
 		// handle special messages and pass on the rest
