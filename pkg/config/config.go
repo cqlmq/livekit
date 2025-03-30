@@ -623,7 +623,9 @@ func (conf *Config) ValidateKeys() error {
 	if !conf.Development {
 		for key, secret := range conf.Keys {
 			if len(secret) < 32 {
-				logger.Errorw("secret is too short, should be at least 32 characters for security", nil, "apiKey", key)
+				err := fmt.Errorf("secret is too short, should be at least 32 characters for security apiKey: %s", key)
+				// logger.Warnw(err.Error(), nil)
+				return err
 			}
 		}
 	}

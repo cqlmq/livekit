@@ -15,7 +15,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -253,7 +252,8 @@ func main() {
 	// 运行应用程序
 	// Run the application
 	if err := app.Run(os.Args); err != nil {
-		fmt.Println(err)
+		// fmt.Println(err)
+		logger.Errorw(err.Error(), nil)
 	}
 }
 
@@ -283,7 +283,7 @@ func getConfig(c *cli.Context) (*config.Config, error) {
 
 	// 初始化日志配置
 	// Initialize logger configuration
-	config.InitLoggerFromConfig(&conf.Logging)
+	// config.InitLoggerFromConfig(&conf.Logging)
 
 	// 开发模式特殊处理
 	// Special handling for development mode
@@ -340,9 +340,9 @@ func startServer(c *cli.Context) error {
 	}
 
 	// 打印目前的配置
-	buf, _ := json.MarshalIndent(conf, "", "  ")
-	fmt.Println("getConfig() after config:")
-	fmt.Println(string(buf))
+	// buf, _ := json.MarshalIndent(conf, "", "  ")
+	// fmt.Println("getConfig() after config:")
+	// fmt.Println(string(buf))
 
 	// 验证API密钥长度
 	// Validate API key length
@@ -351,6 +351,8 @@ func startServer(c *cli.Context) error {
 		return err
 	}
 
+	// 内存分析 --memprofile 指定内存分析文件
+	// Memory profile --memprofile specify memory profile file
 	if memProfile := c.String("memprofile"); memProfile != "" {
 		if f, err := os.Create(memProfile); err != nil {
 			return err
@@ -398,6 +400,12 @@ func startServer(c *cli.Context) error {
 
 	// 创建本地节点
 	// Create local node
+	currentNode, err := routing.NewLocalNode(conf)
+	if err != nil {
+		return err
+	}
+
+	// 打印当前节点信息
 	// 数据样本：{
 	//  "id":"ND_hp9Ny4sFYKBS",
 	//  "ip":"113.206.32.164",
@@ -405,16 +413,11 @@ func startServer(c *cli.Context) error {
 	//  "stats":{"started_at":1741530520,"updated_at":1741530520},
 	//  "state":1
 	// }
-	currentNode, err := routing.NewLocalNode(conf)
-	if err != nil {
-		return err
-	}
-	// 打印当前节点信息
-	buf, _ = currentNode.Marshal()
-	fmt.Println("NewLocalNode() after currentNode:")
-	fmt.Println(string(buf))
+	// buf, _ := currentNode.Marshal()
+	// fmt.Println("NewLocalNode() after currentNode:")
+	// fmt.Println(string(buf))
 
-	logger.Debugw("current node info", "id", currentNode.NodeID(), "ip", currentNode.NodeIP(), "type", currentNode.NodeType())
+	logger.Debugw("current node info", "id", currentNode.NodeID(), "type", currentNode.NodeType(), "ip", currentNode.NodeIP())
 
 	// 初始化Prometheus监控指标
 	// Initialize Prometheus monitoring
