@@ -20,6 +20,7 @@ import (
 )
 
 // StaticConfigurations list specific device-side limitations that should be disabled at a global level
+// 静态配置列表，定义了特定设备上的限制，应在全局范围内禁用
 var StaticConfigurations = []ConfigurationItem{
 	// {
 	// 	Match:         &ScriptMatch{Expr: `c.protocol <= 5 || c.browser == "firefox"`},

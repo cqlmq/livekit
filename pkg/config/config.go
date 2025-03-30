@@ -340,81 +340,81 @@ func DefaultAPIConfig() APIConfig {
 // DefaultConfig 返回默认的配置
 // DefaultConfig returns default configuration
 var DefaultConfig = Config{
-	Port: 7880,
+	Port: 7880, // 默认端口
 	RTC: RTCConfig{
-		RTCConfig: rtcconfig.RTCConfig{
-			UseExternalIP:     false,
-			TCPPort:           7881,
-			ICEPortRangeStart: 0,
-			ICEPortRangeEnd:   0,
-			STUNServers:       []string{},
+		RTCConfig: rtcconfig.RTCConfig{ // 默认RTC配置
+			UseExternalIP:     false,      // 是否使用外部IP
+			TCPPort:           7881,       // 默认TCP端口
+			ICEPortRangeStart: 0,          // 默认ICE端口范围开始
+			ICEPortRangeEnd:   0,          // 默认ICE端口范围结束
+			STUNServers:       []string{}, // 默认STUN服务器
 		},
-		PacketBufferSize:      500,
-		PacketBufferSizeVideo: 500,
-		PacketBufferSizeAudio: 200,
-		PLIThrottle:           sfu.DefaultPLIThrottleConfig,
-		CongestionControl: CongestionControlConfig{
-			Enabled:                   true,
-			AllowPause:                false,
-			StreamAllocator:           streamallocator.DefaultStreamAllocatorConfig,
-			RemoteBWE:                 remotebwe.DefaultRemoteBWEConfig,
-			UseSendSideBWEInterceptor: false,
-			UseSendSideBWE:            false,
-			SendSideBWE:               sendsidebwe.DefaultSendSideBWEConfig,
+		PacketBufferSize:      500,                          // 默认包缓冲区大小
+		PacketBufferSizeVideo: 500,                          // 默认视频包缓冲区大小
+		PacketBufferSizeAudio: 200,                          // 默认音频包缓冲区大小
+		PLIThrottle:           sfu.DefaultPLIThrottleConfig, // 默认PLI节流配置
+		CongestionControl: CongestionControlConfig{ // 默认拥塞控制配置
+			Enabled:                   true,                                         // 默认启用拥塞控制
+			AllowPause:                false,                                        // 默认不允许暂停
+			StreamAllocator:           streamallocator.DefaultStreamAllocatorConfig, // 默认流分配器配置
+			RemoteBWE:                 remotebwe.DefaultRemoteBWEConfig,             // 默认远程BWE配置
+			UseSendSideBWEInterceptor: false,                                        // 默认不使用发送端BWE拦截器
+			UseSendSideBWE:            false,                                        // 默认不使用发送端BWE
+			SendSideBWE:               sendsidebwe.DefaultSendSideBWEConfig,         // 默认发送端BWE配置
 		},
 	},
-	Audio: sfu.DefaultAudioConfig,
-	Video: VideoConfig{
-		DynacastPauseDelay:   5 * time.Second,
-		StreamTrackerManager: sfu.DefaultStreamTrackerManagerConfig,
+	Audio: sfu.DefaultAudioConfig, // 默认音频配置
+	Video: VideoConfig{ // 默认视频配置
+		DynacastPauseDelay:   5 * time.Second,                       // 默认动态广播暂停延迟
+		StreamTrackerManager: sfu.DefaultStreamTrackerManagerConfig, // 默认流跟踪管理器配置
 	},
-	Redis: redisLiveKit.RedisConfig{},
-	Room: RoomConfig{
-		AutoCreate: true,
+	Redis: redisLiveKit.RedisConfig{}, // 默认Redis配置
+	Room: RoomConfig{ // 默认房间配置
+		AutoCreate: true, // 默认自动创建房间
 		EnabledCodecs: []CodecSpec{
-			{Mime: mime.MimeTypeOpus.String()},
-			{Mime: mime.MimeTypeRED.String()},
-			{Mime: mime.MimeTypeVP8.String()},
-			{Mime: mime.MimeTypeH264.String()},
-			{Mime: mime.MimeTypeVP9.String()},
-			{Mime: mime.MimeTypeAV1.String()},
-			{Mime: mime.MimeTypeRTX.String()},
+			{Mime: mime.MimeTypeOpus.String()}, // 默认Opus编码
+			{Mime: mime.MimeTypeRED.String()},  // 默认RED编码
+			{Mime: mime.MimeTypeVP8.String()},  // 默认VP8编码
+			{Mime: mime.MimeTypeH264.String()}, // 默认H264编码
+			{Mime: mime.MimeTypeVP9.String()},  // 默认VP9编码
+			{Mime: mime.MimeTypeAV1.String()},  // 默认AV1编码
+			{Mime: mime.MimeTypeRTX.String()},  // 默认RTX编码
 		},
-		EmptyTimeout:       5 * 60,
-		DepartureTimeout:   20,
-		CreateRoomEnabled:  true,
-		CreateRoomTimeout:  10 * time.Second,
-		CreateRoomAttempts: 3,
+		EmptyTimeout:       5 * 60,           // 默认空超时
+		DepartureTimeout:   20,               // 默认离开超时
+		CreateRoomEnabled:  true,             // 默认创建房间
+		CreateRoomTimeout:  10 * time.Second, // 默认创建房间超时
+		CreateRoomAttempts: 3,                // 默认创建房间尝试次数
 	},
-	Limit: LimitConfig{
-		MaxMetadataSize:              64000,
-		MaxAttributesSize:            64000,
-		MaxRoomNameLength:            256,
-		MaxParticipantIdentityLength: 256,
-		MaxParticipantNameLength:     256,
+	Limit: LimitConfig{ // 默认限制配置
+		MaxMetadataSize:              64000, // 默认最大元数据大小
+		MaxAttributesSize:            64000, // 默认最大属性大小
+		MaxRoomNameLength:            256,   // 默认最大房间名称长度
+		MaxParticipantIdentityLength: 256,   // 默认最大参与者标识长度
+		MaxParticipantNameLength:     256,   // 默认最大参与者名称长度
 	},
-	Logging: LoggingConfig{
-		PionLevel: "error",
+	Logging: LoggingConfig{ // 默认日志配置
+		PionLevel: "error", // 默认Pion日志级别
 	},
-	TURN: TURNConfig{
-		Enabled: false,
+	TURN: TURNConfig{ // 默认TURN配置
+		Enabled: false, // 默认禁用TURN
 	},
-	NodeSelector: NodeSelectorConfig{
-		Kind:         "any",
-		SortBy:       "random",
-		SysloadLimit: 0.9,
-		CPULoadLimit: 0.9,
+	NodeSelector: NodeSelectorConfig{ // 默认节点选择器配置
+		Kind:         "any",    // 默认节点类型
+		SortBy:       "random", // 默认排序方式
+		SysloadLimit: 0.9,      // 默认系统负载限制
+		CPULoadLimit: 0.9,      // 默认CPU负载限制
 	},
-	SignalRelay: SignalRelayConfig{
-		RetryTimeout:     7500 * time.Millisecond,
-		MinRetryInterval: 500 * time.Millisecond,
-		MaxRetryInterval: 4 * time.Second,
-		StreamBufferSize: 1000,
-		ConnectAttempts:  3,
+	SignalRelay: SignalRelayConfig{ // 默认信号中继配置
+		RetryTimeout:     7500 * time.Millisecond, // 默认重试超时
+		MinRetryInterval: 500 * time.Millisecond,  // 默认最小重试间隔
+		MaxRetryInterval: 4 * time.Second,         // 默认最大重试间隔
+		StreamBufferSize: 1000,                    // 默认流缓冲区大小
+		ConnectAttempts:  3,                       // 默认连接尝试次数
 	},
-	PSRPC:  rpc.DefaultPSRPCConfig,
-	Keys:   map[string]string{},
-	Metric: metric.DefaultMetricConfig,
+	PSRPC:  rpc.DefaultPSRPCConfig,     // 默认PSRPC配置
+	Keys:   map[string]string{},        // 默认密钥配置
+	Metric: metric.DefaultMetricConfig, // 默认指标配置
 }
 
 // NewConfig 创建并初始化配置对象

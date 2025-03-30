@@ -24,6 +24,7 @@ import (
 	"github.com/livekit/protocol/logger"
 	"github.com/livekit/protocol/utils"
 	"github.com/livekit/protocol/utils/guid"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/livekit/livekit-server/pkg/config"
 	"github.com/livekit/livekit-server/pkg/telemetry/prometheus"
@@ -32,6 +33,7 @@ import (
 // LocalNode 本地节点接口
 type LocalNode interface {
 	Clone() *livekit.Node                 // 克隆一个节点
+	ToProtoBytes() ([]byte, error)        // 将节点转换成[]byte
 	SetNodeID(nodeID livekit.NodeID)      // 设置节点ID
 	NodeID() livekit.NodeID               // 获取节点ID
 	NodeType() livekit.NodeType           // 获取节点类型
@@ -46,7 +48,7 @@ type LocalNode interface {
 // LocalNodeImpl 本地节点实现
 type LocalNodeImpl struct {
 	lock sync.RWMutex
-	node *livekit.Node
+	node *livekit.Node // 节点结构，基于proto的Node结构
 
 	// previous stats for computing averages
 	// 前一个统计信息，用于计算平均值
@@ -90,6 +92,15 @@ func (l *LocalNodeImpl) Clone() *livekit.Node {
 	defer l.lock.RUnlock()
 
 	return utils.CloneProto(l.node)
+}
+
+// ToProtoBytes 将节点转换成proto的[]byte
+// 这样是否可以减少一次克隆呢？
+func (l *LocalNodeImpl) ToProtoBytes() ([]byte, error) {
+	l.lock.RLock()
+	defer l.lock.RUnlock()
+
+	return proto.Marshal(l.node)
 }
 
 // for testing only

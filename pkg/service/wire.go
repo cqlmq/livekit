@@ -162,6 +162,8 @@ func createKeyProvider(conf *config.Config) (auth.KeyProvider, error) {
 	return auth.NewFileBasedKeyProviderFromMap(conf.Keys), nil
 }
 
+// createWebhookNotifier 创建Webhook通知器
+// 创建Webhook通知器，如果配置了Webhook，则创建Webhook通知器，否则返回nil
 func createWebhookNotifier(conf *config.Config, provider auth.KeyProvider) (webhook.QueuedNotifier, error) {
 	wc := conf.WebHook
 	if len(wc.URLs) == 0 {

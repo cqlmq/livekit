@@ -50,15 +50,18 @@ var _ Router = (*RedisRouter)(nil)
 // RedisRouter uses Redis pub/sub to route signaling messages across different nodes
 // It relies on the RTC node to be the primary driver of the participant connection.
 // Because
+// RedisRouter 使用 Redis 发布/订阅来跨不同节点路由信令消息
+// 它依赖于 RTC 节点成为参与者连接的主要驱动程序。
+// 因为
 type RedisRouter struct {
 	*LocalRouter
 
-	rc        redis.UniversalClient
-	kps       rpc.KeepalivePubSub
-	ctx       context.Context
-	isStarted atomic.Bool
+	rc        redis.UniversalClient // redis客户端
+	kps       rpc.KeepalivePubSub   // 保持活跃的发布订阅
+	ctx       context.Context       // 上下文
+	isStarted atomic.Bool           // 是否启动
 
-	cancel func()
+	cancel func() // 取消函数
 }
 
 func NewRedisRouter(lr *LocalRouter, rc redis.UniversalClient, kps rpc.KeepalivePubSub) *RedisRouter {
@@ -72,7 +75,12 @@ func NewRedisRouter(lr *LocalRouter, rc redis.UniversalClient, kps rpc.Keepalive
 }
 
 func (r *RedisRouter) RegisterNode() error {
-	data, err := proto.Marshal(r.currentNode.Clone())
+	// data, err := proto.Marshal(r.currentNode.Clone())
+	// if err != nil {
+	// 	return err
+	// }
+	// 直接转换成proto的[]byte，减少一次克隆
+	data, err := r.currentNode.ToProtoBytes()
 	if err != nil {
 		return err
 	}
@@ -210,7 +218,7 @@ func (r *RedisRouter) statsWorker() {
 		// update periodically
 		select {
 		case <-time.After(statsUpdateInterval):
-			// 发布心跳
+			// 发布心跳(秒)
 			r.kps.PublishPing(r.ctx, r.currentNode.NodeID(), &rpc.KeepalivePing{Timestamp: time.Now().Unix()})
 
 			// 检查延迟
@@ -242,16 +250,23 @@ func (r *RedisRouter) keepaliveWorker(startedChan chan error) {
 	close(startedChan)
 
 	for ping := range pings.Channel() {
+		// 打印订阅的消息
+		// fmt.Println("keepaliveWorker SubscribePing==================", ping)
+
+		// 检查心跳是否过期
 		if time.Since(time.Unix(ping.Timestamp, 0)) > statsUpdateInterval {
 			logger.Infow("keep alive too old, skipping", "timestamp", ping.Timestamp)
 			continue
 		}
 
+		// 更新节点统计信息
 		if !r.currentNode.UpdateNodeStats() {
 			continue
 		}
 
-		// TODO: check stats against config.Limit values
+		// TODO: check stats against config.Limit values // 检查统计信息是否符合配置的限制值
+
+		// 注册节点
 		if err := r.RegisterNode(); err != nil {
 			logger.Errorw("could not update node", err)
 		}

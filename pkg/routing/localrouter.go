@@ -16,7 +16,6 @@ package routing
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"go.uber.org/atomic"
@@ -29,12 +28,12 @@ import (
 var _ Router = (*LocalRouter)(nil)
 
 // a router of messages on the same node, basic implementation for local testing
+// 在同一节点上进行消息路由的本地路由器，基本实现用于本地测试
 type LocalRouter struct {
-	currentNode       LocalNode
-	signalClient      SignalClient
-	roomManagerClient RoomManagerClient
-
-	lock sync.RWMutex
+	// lock sync.RWMutex // 读写锁，没有使用，暂注释了
+	currentNode       LocalNode         // 当前节点
+	signalClient      SignalClient      // 信令客户端
+	roomManagerClient RoomManagerClient // 房间管理客户端
 	// channels for each participant
 	requestChannels  map[string]*MessageChannel // 每个参与者的请求通道
 	responseChannels map[string]*MessageChannel // 每个参与者的响应通道
@@ -59,22 +58,27 @@ func (r *LocalRouter) GetNodeForRoom(_ context.Context, _ livekit.RoomName) (*li
 	return r.currentNode.Clone(), nil
 }
 
+// 设置节点用于房间 本地模式不用具体实现
 func (r *LocalRouter) SetNodeForRoom(_ context.Context, _ livekit.RoomName, _ livekit.NodeID) error {
 	return nil
 }
 
+// 清除房间状态 本地模式不用具体实现
 func (r *LocalRouter) ClearRoomState(_ context.Context, _ livekit.RoomName) error {
 	return nil
 }
 
+// 注册节点 本地模式不用具体实现
 func (r *LocalRouter) RegisterNode() error {
 	return nil
 }
 
+// 注销节点 本地模式不用具体实现
 func (r *LocalRouter) UnregisterNode() error {
 	return nil
 }
 
+// 移除死节点 本地模式不用具体实现
 func (r *LocalRouter) RemoveDeadNodes() error {
 	return nil
 }

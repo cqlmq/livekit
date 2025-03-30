@@ -160,7 +160,7 @@ func (r *signalService) RelaySignal(stream psrpc.ServerStream[*rpc.RelaySignalRe
 		"connID", ss.ConnectionId,
 	)
 
-	stream.Hijack()
+	stream.Hijack() // 劫持流 以后好好研究一下，调用后，stream在处理时，不会调用Close方法?
 	sink := routing.NewSignalMessageSink(routing.SignalSinkParams[*rpc.RelaySignalResponse, *rpc.RelaySignalRequest]{
 		Logger:       l,
 		Stream:       stream,

@@ -103,6 +103,7 @@ func (s *RedisStore) Start() error {
 
 	s.done = make(chan struct{}, 1)
 
+	// 获取Redis中的版本号
 	v, err := s.rc.Get(s.ctx, VersionKey).Result()
 	if err != nil && err != redis.Nil {
 		return err
@@ -112,13 +113,17 @@ func (s *RedisStore) Start() error {
 	}
 	existing, _ := goversion.NewVersion(v)
 	current, _ := goversion.NewVersion(version.Version)
+	// 如果当前版本号大于Redis中的版本号，则设置为当前版本号
 	if current.GreaterThan(existing) {
 		if err = s.rc.Set(s.ctx, VersionKey, version.Version, 0).Err(); err != nil {
 			return err
 		}
+	} else if current.LessThan(existing) {
+		// 如果当前版本号小于Redis中的版本号，打印一个信息, 提示用户升级
+		logger.Warnw("current version is less than redis version", nil, "current", current, "redis", existing)
 	}
 
-	go s.egressWorker()
+	go s.egressWorker() // 启动一个协程，用于处理Egress
 	return nil
 }
 
