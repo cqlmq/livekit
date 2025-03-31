@@ -159,6 +159,8 @@ func InitializeServer(conf *config.Config, currentNode routing.LocalNode) (*Live
 	return livekitServer, nil
 }
 
+// InitializeRouter 初始化路由
+// 使用于listNodes函数
 func InitializeRouter(conf *config.Config, currentNode routing.LocalNode) (routing.Router, error) {
 	redisConfig := getRedisConfig(conf)
 	universalClient, err := createRedisClient(redisConfig)
@@ -189,10 +191,12 @@ func InitializeRouter(conf *config.Config, currentNode routing.LocalNode) (routi
 
 // wire.go:
 
+// getNodeID 获取节点ID
 func getNodeID(currentNode routing.LocalNode) livekit.NodeID {
 	return currentNode.NodeID()
 }
 
+// createKeyProvider 创建密钥提供者
 func createKeyProvider(conf *config.Config) (auth.KeyProvider, error) {
 
 	if conf.KeyFile != "" {
@@ -317,24 +321,25 @@ func createClientConfiguration() clientconfiguration.ClientConfigurationManager 
 	return clientconfiguration.NewStaticClientConfigurationManager(clientconfiguration.StaticConfigurations)
 }
 
-func getLimitConf(config2 *config.Config) config.LimitConfig {
-	return config2.GetLimitConfig()
+func getLimitConf(conf *config.Config) config.LimitConfig {
+	return conf.GetLimitConfig()
 }
 
-func getRoomConfig(config2 *config.Config) config.RoomConfig {
-	return config2.Room
+func getRoomConfig(conf *config.Config) config.RoomConfig {
+	return conf.Room
 }
 
-func getSignalRelayConfig(config2 *config.Config) config.SignalRelayConfig {
-	return config2.SignalRelay
+// getSignalRelayConfig 获取信号Relay配置
+func getSignalRelayConfig(conf *config.Config) config.SignalRelayConfig {
+	return conf.SignalRelay
 }
 
-func getPSRPCConfig(config2 *config.Config) rpc.PSRPCConfig {
-	return config2.PSRPC
+func getPSRPCConfig(conf *config.Config) rpc.PSRPCConfig {
+	return conf.PSRPC
 }
 
-func getPSRPCClientParams(config2 rpc.PSRPCConfig, bus psrpc.MessageBus) rpc.ClientParams {
-	return rpc.NewClientParams(config2, bus, logger.GetLogger(), rpc.PSRPCMetricsObserver{})
+func getPSRPCClientParams(conf rpc.PSRPCConfig, bus psrpc.MessageBus) rpc.ClientParams {
+	return rpc.NewClientParams(conf, bus, logger.GetLogger(), rpc.PSRPCMetricsObserver{})
 }
 
 func createForwardStats(conf *config.Config) *sfu.ForwardStats {

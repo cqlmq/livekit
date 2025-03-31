@@ -74,11 +74,17 @@ func NewRedisRouter(lr *LocalRouter, rc redis.UniversalClient, kps rpc.Keepalive
 	return rr
 }
 
+// 注册节点
+// 会定时更新节点状态，类似心跳的机制
 func (r *RedisRouter) RegisterNode() error {
 	// data, err := proto.Marshal(r.currentNode.Clone())
 	// if err != nil {
 	// 	return err
 	// }
+	// nd := r.currentNode.Clone()
+	// buf, _ := json.MarshalIndent(nd, "", "  ")
+	// fmt.Println("RegisterNode currentNode:", string(buf))
+
 	// 直接转换成proto的[]byte，减少一次克隆
 	data, err := r.currentNode.ToProtoBytes()
 	if err != nil {

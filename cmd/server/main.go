@@ -433,8 +433,8 @@ func startServer(c *cli.Context) error {
 		return err
 	}
 
-	// 设置信号处理
-	// Set up signal handling
+	// 设置信号处理（优雅关闭）
+	// Set up signal handling (graceful shutdown)
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	// 启动信号处理协程

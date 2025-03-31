@@ -34,10 +34,12 @@ type LocalRouter struct {
 	currentNode       LocalNode         // 当前节点
 	signalClient      SignalClient      // 信令客户端
 	roomManagerClient RoomManagerClient // 房间管理客户端
-	// channels for each participant
+
+	// channels for each participant // 每个参与者的请求通道
 	requestChannels  map[string]*MessageChannel // 每个参与者的请求通道
 	responseChannels map[string]*MessageChannel // 每个参与者的响应通道
-	isStarted        atomic.Bool                // 是否启动
+
+	isStarted atomic.Bool // 启动标识
 }
 
 func NewLocalRouter(

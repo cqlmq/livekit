@@ -48,22 +48,19 @@ import (
 // LivekitServer 定义了LivekitServer结构体
 type LivekitServer struct {
 	// 核心服务组件
-	config       *config.Config // 服务器全局配置,包含所有服务的配置参数
-	roomManager  *RoomManager   // 管理房间的生命周期、参与者和媒体会话
-	signalServer *SignalServer  // 处理WebRTC连接建立的信令交换和会话协商
-	turnServer   *turn.Server   // 提供NAT穿透服务,确保在复杂网络环境下的连接性
-
+	roomManager  *RoomManager  // 管理房间的生命周期、参与者和媒体会话
+	signalServer *SignalServer // 处理WebRTC连接建立的信令交换和会话协商
+	turnServer   *turn.Server  // 提供NAT穿透服务,确保在复杂网络环境下的连接性
 	// 媒体服务
 	rtcService   *RTCService    // 处理WebRTC连接、媒体流传输和SFU功能
 	ioService    *IOInfoService // 处理媒体流的输入输出统计和监控
 	agentService *AgentService  // 处理媒体处理代理(如录制、转码等)的管理
-
 	// 网络和API服务
 	httpServer *http.Server   // 提供REST API和WebSocket接入点
 	promServer *http.Server   // 提供Prometheus指标采集接口
 	router     routing.Router // 处理分布式节点间的消息路由和负载均衡
-
 	// 节点状态管理
+	config      *config.Config    // 服务器全局配置,包含所有服务的配置参数
 	currentNode routing.LocalNode // 当前节点在集群中的标识和状态信息
 	running     atomic.Bool       // 服务器运行状态标志
 	doneChan    chan struct{}     // 服务关闭信号通道
@@ -104,6 +101,11 @@ func NewLivekitServer(
 		closedChan:  make(chan struct{}),
 	}
 
+	// 中间件管理
+	// 	错误恢复
+	// CORS处理
+	// URL清理
+	// API认证
 	middlewares := []negroni.Handler{
 		// always first // 1. 错误恢复中间件
 		negroni.NewRecovery(),
@@ -140,32 +142,29 @@ func NewLivekitServer(
 	mux := http.NewServeMux()
 	if conf.Development {
 		// pprof handlers are registered onto DefaultServeMux
+		// 将pprof处理程序注册到DefaultServeMux
 		mux = http.DefaultServeMux
 		mux.HandleFunc("/debug/goroutine", s.debugGoroutines)
 		mux.HandleFunc("/debug/rooms", s.debugInfo)
 	}
 
-	xtwirp.RegisterServer(mux, roomServer)
-	xtwirp.RegisterServer(mux, agentDispatchServer)
-	xtwirp.RegisterServer(mux, egressServer)
-	xtwirp.RegisterServer(mux, ingressServer)
-	xtwirp.RegisterServer(mux, sipServer)
-	mux.Handle("/rtc", rtcService)
-	rtcService.SetupRoutes(mux)
-	mux.Handle("/agent", agentService)
-	mux.HandleFunc("/", s.defaultHandler)
+	xtwirp.RegisterServer(mux, roomServer)          // 注册房间服务
+	xtwirp.RegisterServer(mux, agentDispatchServer) // 注册代理调度服务
+	xtwirp.RegisterServer(mux, egressServer)        // 注册出口服务
+	xtwirp.RegisterServer(mux, ingressServer)       // 注册入口服务
+	xtwirp.RegisterServer(mux, sipServer)           // 注册SIP服务
+
+	mux.Handle("/rtc", rtcService) // 处理WebRTC连接
+	rtcService.SetupRoutes(mux)    // 设置WebRTC连接的路由
+
+	mux.Handle("/agent", agentService)    // 处理代理服务
+	mux.HandleFunc("/", s.defaultHandler) // 处理默认请求
 
 	s.httpServer = &http.Server{
 		Handler: configureMiddlewares(mux, middlewares...),
 	}
 
-	// 去除 PrometheusPort 参数的支持，这是一个过期参数
-	// 调整优先级，以 Prometheus.Port 为准
-	// if conf.PrometheusPort > 0 && conf.Prometheus.Port == 0 {
-	// 	logger.Warnw("prometheus_port is deprecated, please switch prometheus.port instead", nil)
-	// 	conf.Prometheus.Port = conf.PrometheusPort
-	// }
-
+	// 启动Prometheus服务
 	if conf.Prometheus.Port > 0 {
 		promHandler := promhttp.Handler() // 创建一个prometheus指标采集的handler
 		if conf.Prometheus.Username != "" && conf.Prometheus.Password != "" {
@@ -204,6 +203,7 @@ func (s *LivekitServer) Start() error {
 	}
 	s.doneChan = make(chan struct{})
 
+	// 注册/注销节点（退出时）
 	if err := s.router.RegisterNode(); err != nil {
 		return err
 	}
@@ -213,7 +213,8 @@ func (s *LivekitServer) Start() error {
 		}
 	}()
 
-	// 启动路由
+	// 启动路由（维持节点的最新状态与指标到存储中心）
+	// 启动的两个协程会定时更新节点状态与指标，类似心跳的机制
 	if err := s.router.Start(); err != nil {
 		return err
 	}
@@ -290,6 +291,7 @@ func (s *LivekitServer) Start() error {
 	}
 
 	httpGroup := &errgroup.Group{}
+
 	// 启动HTTP服务
 	for _, ln := range listeners {
 		l := ln
@@ -304,7 +306,7 @@ func (s *LivekitServer) Start() error {
 		}
 	}()
 
-	// 定时服务(1秒)执行关闭空闲房间直到接收到关闭信号后退出协程
+	// 定时服务(1秒)执行关闭空闲房间
 	go s.backgroundWorker()
 
 	// give time for Serve goroutine to start
@@ -318,6 +320,10 @@ func (s *LivekitServer) Start() error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	_ = s.httpServer.Shutdown(ctx)
+
+	if s.promServer != nil {
+		_ = s.promServer.Shutdown(ctx)
+	}
 
 	if s.turnServer != nil {
 		_ = s.turnServer.Close()
