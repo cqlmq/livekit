@@ -82,16 +82,20 @@ func NewDefaultSignalServer(
 	return NewSignalServer(currentNode.NodeID(), currentNode.Region(), bus, config, &defaultSessionHandler{currentNode, router, roomManager})
 }
 
+// defaultSessionHandler 默认会话处理器
 type defaultSessionHandler struct {
 	currentNode routing.LocalNode
 	router      routing.Router
 	roomManager *RoomManager
 }
 
+// Logger 返回日志记录器
 func (s *defaultSessionHandler) Logger(ctx context.Context) logger.Logger {
 	return logger.GetLogger()
 }
 
+// HandleSession 处理会话
+// 这里真正完成信令处理
 func (s *defaultSessionHandler) HandleSession(
 	ctx context.Context,
 	pi routing.ParticipantInit,
@@ -99,13 +103,16 @@ func (s *defaultSessionHandler) HandleSession(
 	requestSource routing.MessageSource,
 	responseSink routing.MessageSink,
 ) error {
+	// 1. 增加参与者计数
 	prometheus.IncrementParticipantRtcInit(1)
 
+	// 2. 获取RTC节点
 	rtcNode, err := s.router.GetNodeForRoom(ctx, livekit.RoomName(pi.CreateRoom.Name))
 	if err != nil {
 		return err
 	}
 
+	// 3. 检查RTC节点是否正确，如果不是当前节点的消息，则返回错误
 	if livekit.NodeID(rtcNode.Id) != s.currentNode.NodeID() {
 		err = routing.ErrIncorrectRTCNode
 		logger.Errorw("called participant on incorrect node", err,
@@ -114,6 +121,8 @@ func (s *defaultSessionHandler) HandleSession(
 		return err
 	}
 
+	// 4. 开始会话
+	// 收发消息通道&参与者信息 -> 房间管理器的StartSession方法
 	return s.roomManager.StartSession(ctx, pi, requestSource, responseSink, false)
 }
 
@@ -134,6 +143,7 @@ type signalService struct {
 	config         config.SignalRelayConfig
 }
 
+// RelaySignal 处理信令请求
 func (r *signalService) RelaySignal(stream psrpc.ServerStream[*rpc.RelaySignalResponse, *rpc.RelaySignalRequest]) (err error) {
 	// 1. 获取初始化请求
 	// 2. 验证会话信息
@@ -149,11 +159,13 @@ func (r *signalService) RelaySignal(stream psrpc.ServerStream[*rpc.RelaySignalRe
 		return errors.New("expected start session message")
 	}
 
+	// 5. 从会话信息中读取参与者初始化信息
 	pi, err := routing.ParticipantInitFromStartSession(ss, r.region)
 	if err != nil {
 		return errors.Wrap(err, "failed to read participant from session")
 	}
 
+	// 6. 创建日志记录器
 	l := r.sessionHandler.Logger(stream.Context()).WithValues(
 		"room", ss.RoomName,
 		"participant", ss.Identity,
@@ -161,6 +173,8 @@ func (r *signalService) RelaySignal(stream psrpc.ServerStream[*rpc.RelaySignalRe
 	)
 
 	stream.Hijack() // 劫持流 以后好好研究一下，调用后，stream在处理时，不会调用Close方法?
+
+	// 7. 创建信令消息写入器
 	sink := routing.NewSignalMessageSink(routing.SignalSinkParams[*rpc.RelaySignalResponse, *rpc.RelaySignalRequest]{
 		Logger:       l,
 		Stream:       stream,
@@ -168,8 +182,11 @@ func (r *signalService) RelaySignal(stream psrpc.ServerStream[*rpc.RelaySignalRe
 		Writer:       signalResponseMessageWriter{},
 		ConnectionID: livekit.ConnectionID(ss.ConnectionId),
 	})
+
+	// 8. 创建信令消息通道
 	reqChan := routing.NewDefaultMessageChannel(livekit.ConnectionID(ss.ConnectionId))
 
+	// 9. 启动协程，复制信令流到消息通道
 	go func() {
 		err := routing.CopySignalStreamToMessageChannel[*rpc.RelaySignalResponse, *rpc.RelaySignalRequest](
 			stream,
@@ -185,6 +202,9 @@ func (r *signalService) RelaySignal(stream psrpc.ServerStream[*rpc.RelaySignalRe
 	// copy the context to prevent a race between the session handler closing
 	// and the delivery of any parting messages from the client. take care to
 	// copy the incoming rpc headers to avoid dropping any session vars.
+	// 拷贝上下文，防止会话处理关闭和客户端发送的任何离开消息之间出现竞争。
+	// 拷贝入站RPC头，避免丢弃任何会话变量。
+	// 10. 处理会话
 	ctx := metadata.NewContextWithIncomingHeader(context.Background(), metadata.IncomingHeader(stream.Context()))
 	err = r.sessionHandler.HandleSession(ctx, *pi, livekit.ConnectionID(ss.ConnectionId), reqChan, sink)
 	if err != nil {

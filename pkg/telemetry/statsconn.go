@@ -39,16 +39,19 @@ func (l *Listener) Accept() (net.Conn, error) {
 	return NewConn(conn, prometheus.Incoming), nil
 }
 
+// Conn 封装net.Conn，扩展了统计功能
 type Conn struct {
 	net.Conn
 	direction prometheus.Direction
 }
 
+// NewConn 创建一个新的Conn
 func NewConn(c net.Conn, direction prometheus.Direction) *Conn {
 	prometheus.AddConnection(direction)
 	return &Conn{Conn: c, direction: direction}
 }
 
+// Read 读取数据
 func (c *Conn) Read(b []byte) (n int, err error) {
 	n, err = c.Conn.Read(b)
 	if n > 0 {
@@ -57,6 +60,7 @@ func (c *Conn) Read(b []byte) (n int, err error) {
 	return
 }
 
+// Write 写数据
 func (c *Conn) Write(b []byte) (n int, err error) {
 	n, err = c.Conn.Write(b)
 	if n > 0 {
@@ -103,14 +107,17 @@ func (c *PacketConn) Close() error {
 	return c.PacketConn.Close()
 }
 
+// RelayAddressGenerator 用于生成TURN的IP地址和端口
 type RelayAddressGenerator struct {
 	turn.RelayAddressGenerator
 }
 
+// NewRelayAddressGenerator 创建一个新的RelayAddressGenerator
 func NewRelayAddressGenerator(g turn.RelayAddressGenerator) *RelayAddressGenerator {
 	return &RelayAddressGenerator{RelayAddressGenerator: g}
 }
 
+// AllocatePacketConn 分配一个PacketConn
 func (g *RelayAddressGenerator) AllocatePacketConn(network string, requestedPort int) (net.PacketConn, net.Addr, error) {
 	conn, addr, err := g.RelayAddressGenerator.AllocatePacketConn(network, requestedPort)
 	if err != nil {
@@ -120,6 +127,7 @@ func (g *RelayAddressGenerator) AllocatePacketConn(network string, requestedPort
 	return NewPacketConn(conn, prometheus.Outgoing), addr, err
 }
 
+// AllocateConn 分配一个Conn
 func (g *RelayAddressGenerator) AllocateConn(network string, requestedPort int) (net.Conn, net.Addr, error) {
 	conn, addr, err := g.RelayAddressGenerator.AllocateConn(network, requestedPort)
 	if err != nil {

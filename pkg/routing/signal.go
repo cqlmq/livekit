@@ -36,6 +36,37 @@ import (
 var ErrSignalWriteFailed = errors.New("signal write failed")
 var ErrSignalMessageDropped = errors.New("signal message dropped")
 
+/*
+代码讲解：
+1. 信令消息处理
+   - signalRequestMessageWriter：处理请求消息的写入
+   - signalResponseMessageReader：处理响应消息的读取
+   - signalMessageSink：实现消息的异步写入和队列管理
+
+2. 消息传输控制
+   - 实现了消息序列号管理
+   - 支持消息重试机制
+   - 包含超时和错误处理
+
+关键特性：
+   - 异步消息处理：使用 goroutine 进行异步消息写入
+   - 消息队列管理：实现了消息缓冲和队列管理
+   - 错误处理：包含完整的错误处理和重试机制
+   - 连接管理：支持连接计数和状态管理
+   - 监控指标：集成了 Prometheus 指标收集
+
+重要方法：
+   - StartParticipantSignal：启动参与者信令连接
+   - WriteMessage：写入消息到队列
+   - Close：关闭信令连接
+   - CopySignalStreamToMessageChannel：复制信号流到消息通道
+
+安全特性：
+   - 使用互斥锁保证并发安全
+   - 实现了消息序列号验证
+   - 支持优雅关闭和资源清理
+*/
+
 // SignalClient 信令客户端接口
 //
 //counterfeiter:generate . SignalClient
@@ -78,7 +109,7 @@ func (r *signalClient) ActiveCount() int {
 	return int(r.active.Load())
 }
 
-// StartParticipantSignal 启动参与者信令
+// StartParticipantSignal 开始参与者信令
 func (r *signalClient) StartParticipantSignal(
 	ctx context.Context,
 	roomName livekit.RoomName,
@@ -96,14 +127,14 @@ func (r *signalClient) StartParticipantSignal(
 		return
 	}
 
-	l := logger.GetLogger().WithValues(
+	log := logger.GetLogger().WithValues(
 		"room", roomName,
 		"reqNodeID", nodeID,
 		"participant", pi.Identity,
 		"connID", connectionID,
 	)
 
-	l.Debugw("starting signal connection")
+	log.Debugw("starting signal connection")
 
 	stream, err := r.client.RelaySignal(ctx, nodeID)
 	if err != nil {
@@ -120,7 +151,7 @@ func (r *signalClient) StartParticipantSignal(
 	}
 
 	params := SignalSinkParams[*rpc.RelaySignalRequest, *rpc.RelaySignalResponse]{
-		Logger:         l,
+		Logger:         log,
 		Stream:         stream,
 		Config:         r.config,
 		Writer:         signalRequestMessageWriter{},
@@ -142,7 +173,7 @@ func (r *signalClient) StartParticipantSignal(
 			signalResponseMessageReader{},
 			r.config,
 		)
-		l.Debugw("signal stream closed", "error", err)
+		log.Debugw("signal stream closed", "error", err)
 
 		resChan.Close()
 	}()
@@ -150,6 +181,7 @@ func (r *signalClient) StartParticipantSignal(
 	return connectionID, sink, resChan, nil
 }
 
+// 信令消息写入器定义与实现
 type signalRequestMessageWriter struct{}
 
 func (e signalRequestMessageWriter) Write(seq uint64, close bool, msgs []proto.Message) *rpc.RelaySignalRequest {
@@ -164,6 +196,7 @@ func (e signalRequestMessageWriter) Write(seq uint64, close bool, msgs []proto.M
 	return r
 }
 
+// 信令消息读取器定义与实现
 type signalResponseMessageReader struct{}
 
 func (e signalResponseMessageReader) Read(rm *rpc.RelaySignalResponse) ([]proto.Message, error) {
@@ -271,7 +304,8 @@ func NewSignalMessageSink[SendType, RecvType RelaySignalMessage](params SignalSi
 	}
 }
 
-// 信号消息写入器
+// 信令消息写入器定义与实现
+// 实现消息的异步写入和队列管理
 type signalMessageSink[SendType, RecvType RelaySignalMessage] struct {
 	SignalSinkParams[SendType, RecvType]
 

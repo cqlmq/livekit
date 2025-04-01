@@ -44,6 +44,10 @@ const (
 	turnMaxPort     = 30000
 )
 
+// NewTurnServer 创建TURN服务器
+// conf: 配置
+// authHandler: 认证处理器
+// standalone: 是否独立运行
 func NewTurnServer(conf *config.Config, authHandler turn.AuthHandler, standalone bool) (*turn.Server, error) {
 	turnConf := conf.TURN
 	if !turnConf.Enabled {
@@ -150,20 +154,24 @@ func getTURNAuthHandlerFunc(handler *TURNAuthHandler) turn.AuthHandler {
 	return handler.HandleAuth
 }
 
+// TURNAuthHandler TURN认证处理器
 type TURNAuthHandler struct {
 	keyProvider auth.KeyProvider
 }
 
+// NewTURNAuthHandler 创建TURN认证处理器
 func NewTURNAuthHandler(keyProvider auth.KeyProvider) *TURNAuthHandler {
 	return &TURNAuthHandler{
 		keyProvider: keyProvider,
 	}
 }
 
+// CreateUsername 创建TURN用户名
 func (h *TURNAuthHandler) CreateUsername(apiKey string, pID livekit.ParticipantID) string {
 	return base62.EncodeToString([]byte(fmt.Sprintf("%s|%s", apiKey, pID)))
 }
 
+// CreatePassword 创建TURN密码
 func (h *TURNAuthHandler) CreatePassword(apiKey string, pID livekit.ParticipantID) (string, error) {
 	secret := h.keyProvider.GetSecret(apiKey)
 	if secret == "" {
@@ -174,6 +182,7 @@ func (h *TURNAuthHandler) CreatePassword(apiKey string, pID livekit.ParticipantI
 	return base62.EncodeToString(sum[:]), nil
 }
 
+// HandleAuth 处理TURN认证
 func (h *TURNAuthHandler) HandleAuth(username, realm string, srcAddr net.Addr) (key []byte, ok bool) {
 	decoded, err := base62.DecodeString(username)
 	if err != nil {
@@ -188,5 +197,6 @@ func (h *TURNAuthHandler) HandleAuth(username, realm string, srcAddr net.Addr) (
 		logger.Warnw("could not create TURN password", err, "username", username)
 		return nil, false
 	}
+	// 生成TURN认证密钥 使用username, realm, password作为参数
 	return turn.GenerateAuthKey(username, LivekitRealm, password), true
 }
