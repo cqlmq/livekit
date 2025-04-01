@@ -179,12 +179,15 @@ func (r *RedisRouter) CreateRoom(ctx context.Context, req *livekit.CreateRoomReq
 }
 
 // StartParticipantSignal signal connection sets up paths to the RTC node, and starts to route messages to that message queue
+// 信令连接设置到 RTC 节点的路径，并开始将消息路由到该消息队列
 func (r *RedisRouter) StartParticipantSignal(ctx context.Context, roomName livekit.RoomName, pi ParticipantInit) (res StartParticipantSignalResults, err error) {
+	// 根据房间名获取 RTC 节点
 	rtcNode, err := r.GetNodeForRoom(ctx, roomName)
 	if err != nil {
 		return
 	}
 
+	// 开始参与者信令
 	return r.StartParticipantSignalWithNodeID(ctx, roomName, pi, livekit.NodeID(rtcNode.Id))
 }
 

@@ -224,7 +224,7 @@ type NodeSelectorConfig struct {
 	Regions      []RegionConfig `yaml:"regions,omitempty"`
 }
 
-// SignalRelayConfig 定义了信号中继配置
+// SignalRelayConfig 定义了信令配置
 type SignalRelayConfig struct {
 	RetryTimeout     time.Duration `yaml:"retry_timeout,omitempty"`      // 重试超时时间
 	MinRetryInterval time.Duration `yaml:"min_retry_interval,omitempty"` // 最小重试间隔时间
@@ -406,11 +406,11 @@ var DefaultConfig = Config{
 		CPULoadLimit: 0.9,      // 默认CPU负载限制
 	},
 	SignalRelay: SignalRelayConfig{ // 默认信号中继配置
-		RetryTimeout:     7500 * time.Millisecond, // 默认重试超时
-		MinRetryInterval: 500 * time.Millisecond,  // 默认最小重试间隔
-		MaxRetryInterval: 4 * time.Second,         // 默认最大重试间隔
-		StreamBufferSize: 1000,                    // 默认流缓冲区大小
-		ConnectAttempts:  3,                       // 默认连接尝试次数
+		RetryTimeout:     7500 * time.Millisecond, // 默认重试超时 7.5秒
+		MinRetryInterval: 500 * time.Millisecond,  // 默认最小重试间隔 0.5秒
+		MaxRetryInterval: 4 * time.Second,         // 默认最大重试间隔 4秒
+		StreamBufferSize: 1000,                    // 默认流缓冲区大小 1000
+		ConnectAttempts:  3,                       // 默认连接尝试次数 3次
 	},
 	PSRPC:  rpc.DefaultPSRPCConfig,     // 默认PSRPC配置
 	Keys:   map[string]string{},        // 默认密钥配置

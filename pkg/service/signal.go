@@ -31,7 +31,7 @@ import (
 	"github.com/livekit/psrpc/pkg/middleware"
 )
 
-// SessionHandler 定义了处理会话的接口
+// SessionHandler 定义了会话处理接口
 // counterfeiter:generate . SessionHandler
 type SessionHandler interface {
 	Logger(ctx context.Context) logger.Logger
@@ -44,13 +44,13 @@ type SessionHandler interface {
 	) error
 }
 
-// SignalServer 定义了信号服务器
+// SignalServer 定义了信令服务器
 type SignalServer struct {
-	server rpc.TypedSignalServer // 信号服务器
+	server rpc.TypedSignalServer // 信令服务器
 	nodeID livekit.NodeID        // 节点ID
 }
 
-// NewSignalServer 创建一个信号服务器
+// NewSignalServer 创建一个信令服务器
 func NewSignalServer(
 	nodeID livekit.NodeID,
 	region string,

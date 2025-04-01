@@ -169,7 +169,7 @@ type MessageRouter interface {
 func CreateRouter(
 	rc redis.UniversalClient, // redis 客户端
 	node LocalNode, // 本地节点
-	signalClient SignalClient, // 信号客户端
+	signalClient SignalClient, // 信令客户端
 	roomManagerClient RoomManagerClient, // 房间管理客户端
 	kps rpc.KeepalivePubSub, // 保持活跃的发布订阅
 ) Router {

@@ -36,25 +36,31 @@ import (
 var ErrSignalWriteFailed = errors.New("signal write failed")
 var ErrSignalMessageDropped = errors.New("signal message dropped")
 
+// SignalClient 信令客户端接口
+//
 //counterfeiter:generate . SignalClient
 type SignalClient interface {
+	// 获取活跃的信令连接数
 	ActiveCount() int
+	// 启动参与者信令
 	StartParticipantSignal(ctx context.Context, roomName livekit.RoomName, pi ParticipantInit, nodeID livekit.NodeID) (connectionID livekit.ConnectionID, reqSink MessageSink, resSource MessageSource, err error)
 }
 
+// signalClient 信令客户端结构与实现
 type signalClient struct {
-	nodeID livekit.NodeID
-	config config.SignalRelayConfig
-	client rpc.TypedSignalClient
-	active atomic.Int32
+	nodeID livekit.NodeID           // 节点ID
+	config config.SignalRelayConfig // 信令配置
+	client rpc.TypedSignalClient    // 信令客户端
+	active atomic.Int32             // 活跃的信令连接数
 }
 
+// NewSignalClient 创建信令客户端
 func NewSignalClient(nodeID livekit.NodeID, bus psrpc.MessageBus, config config.SignalRelayConfig) (SignalClient, error) {
 	c, err := rpc.NewTypedSignalClient(
 		nodeID,
 		bus,
-		middleware.WithClientMetrics(rpc.PSRPCMetricsObserver{}),
-		psrpc.WithClientChannelSize(config.StreamBufferSize),
+		middleware.WithClientMetrics(rpc.PSRPCMetricsObserver{}), // 添加客户端指标
+		psrpc.WithClientChannelSize(config.StreamBufferSize),     // 设置流缓冲区大小
 	)
 	if err != nil {
 		return nil, err
@@ -72,6 +78,7 @@ func (r *signalClient) ActiveCount() int {
 	return int(r.active.Load())
 }
 
+// StartParticipantSignal 启动参与者信令
 func (r *signalClient) StartParticipantSignal(
 	ctx context.Context,
 	roomName livekit.RoomName,
@@ -104,6 +111,7 @@ func (r *signalClient) StartParticipantSignal(
 		return
 	}
 
+	// 发送开始会话请求
 	err = stream.Send(&rpc.RelaySignalRequest{StartSession: ss})
 	if err != nil {
 		stream.Close(err)
