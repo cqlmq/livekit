@@ -29,37 +29,43 @@ const (
 	repairedRTPStreamID = "urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id"
 )
 
+// WebRTCConfig WebRTC 配置
 type WebRTCConfig struct {
-	rtcconfig.WebRTCConfig
+	rtcconfig.WebRTCConfig // 继承 WebRTC 配置
 
-	BufferFactory *buffer.Factory
-	Receiver      ReceiverConfig
-	Publisher     DirectionConfig
-	Subscriber    DirectionConfig
+	BufferFactory *buffer.Factory // 缓冲区工厂
+	Receiver      ReceiverConfig  // 接收器配置
+	Publisher     DirectionConfig // 发布者配置
+	Subscriber    DirectionConfig // 订阅者配置
 }
 
+// ReceiverConfig 接收器配置
 type ReceiverConfig struct {
-	PacketBufferSizeVideo int
-	PacketBufferSizeAudio int
+	PacketBufferSizeVideo int // 视频缓冲区大小
+	PacketBufferSizeAudio int // 音频缓冲区大小
 }
 
+// RTPHeaderExtensionConfig RTP 头扩展配置
 type RTPHeaderExtensionConfig struct {
-	Audio []string
-	Video []string
+	Audio []string // 音频头扩展
+	Video []string // 视频头扩展
 }
 
+// RTCPFeedbackConfig RTCP 反馈配置
 type RTCPFeedbackConfig struct {
-	Audio []webrtc.RTCPFeedback
-	Video []webrtc.RTCPFeedback
+	Audio []webrtc.RTCPFeedback // 音频反馈
+	Video []webrtc.RTCPFeedback // 视频反馈
 }
 
+// DirectionConfig 方向配置
 type DirectionConfig struct {
-	RTPHeaderExtension RTPHeaderExtensionConfig
-	RTCPFeedback       RTCPFeedbackConfig
+	RTPHeaderExtension RTPHeaderExtensionConfig // RTP 头扩展配置
+	RTCPFeedback       RTCPFeedbackConfig       // RTCP 反馈配置
 }
 
+// NewWebRTCConfig 创建 WebRTC 配置
 func NewWebRTCConfig(conf *config.Config) (*WebRTCConfig, error) {
-	rtcConf := conf.RTC
+	rtcConf := conf.RTC // 获取 RTC 配置
 
 	webRTCConfig, err := rtcconfig.NewWebRTCConfig(&rtcConf.RTCConfig, conf.Development)
 	if err != nil {
@@ -122,15 +128,18 @@ func NewWebRTCConfig(conf *config.Config) (*WebRTCConfig, error) {
 	}, nil
 }
 
+// UpdateCongestionControl 更新拥塞控制
 func (c *WebRTCConfig) UpdateCongestionControl(ccConf config.CongestionControlConfig) {
 	c.Subscriber = getSubscriberConfig(ccConf.UseSendSideBWEInterceptor || ccConf.UseSendSideBWE)
 }
 
+// SetBufferFactory 设置缓冲区工厂
 func (c *WebRTCConfig) SetBufferFactory(factory *buffer.Factory) {
 	c.BufferFactory = factory
 	c.SettingEngine.BufferFactory = factory.GetOrNew
 }
 
+// getSubscriberConfig 获取订阅者配置
 func getSubscriberConfig(enableTWCC bool) DirectionConfig {
 	subscriberConfig := DirectionConfig{
 		RTPHeaderExtension: RTPHeaderExtensionConfig{

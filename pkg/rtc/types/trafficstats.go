@@ -20,6 +20,7 @@ import (
 	"github.com/livekit/protocol/livekit"
 )
 
+// TrafficStats 流量统计
 type TrafficStats struct {
 	StartTime         time.Time
 	EndTime           time.Time
@@ -30,16 +31,19 @@ type TrafficStats struct {
 	Bytes             uint64
 }
 
+// TrafficTypeStats 流量类型统计
 type TrafficTypeStats struct {
 	TrackType    livekit.TrackType
 	StreamType   livekit.StreamType
 	TrafficStats *TrafficStats
 }
 
+// TrafficLoad 流量负载
 type TrafficLoad struct {
 	TrafficTypeStats []*TrafficTypeStats
 }
 
+// RTPStatsDiffToTrafficStats 将RTP统计转换为流量统计
 func RTPStatsDiffToTrafficStats(before, after *livekit.RTPStats) *TrafficStats {
 	if after == nil {
 		return nil
@@ -90,6 +94,7 @@ func RTPStatsDiffToTrafficStats(before, after *livekit.RTPStats) *TrafficStats {
 	}
 }
 
+// AggregateTrafficStats 聚合流量统计
 func AggregateTrafficStats(statsList ...*TrafficStats) *TrafficStats {
 	if len(statsList) == 0 {
 		return nil
@@ -134,6 +139,7 @@ func AggregateTrafficStats(statsList ...*TrafficStats) *TrafficStats {
 	}
 }
 
+// TrafficLoadToTrafficRate 将流量负载转换为流量速率
 func TrafficLoadToTrafficRate(trafficLoad *TrafficLoad) (
 	packetRateIn float64,
 	byteRateIn float64,

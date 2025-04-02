@@ -90,60 +90,61 @@ type disconnectSignalOnResumeNoMessages struct {
 	closedCount int
 }
 
+// Room 表示一个房间，包含参与者和代理调度器
 type Room struct {
 	// atomics always need to be 64bit/8byte aligned
 	// on 32bit arch only the beginning of the struct
 	// starts at such a boundary.
 	// time the first participant joined the room
-	joinedAt atomic.Int64
+	joinedAt atomic.Int64 // 第一个参与者加入房间的时间
 	// time that the last participant left the room
-	leftAt atomic.Int64
-	holds  atomic.Int32
+	leftAt atomic.Int64 // 最后一个参与者离开房间的时间
+	holds  atomic.Int32 // 房间的引用计数
 
-	lock sync.RWMutex
+	lock sync.RWMutex // 互斥锁（感觉用mu更好）
 
-	protoRoom  *livekit.Room
-	internal   *livekit.RoomInternal
-	protoProxy *utils.ProtoProxy[*livekit.Room]
-	Logger     logger.Logger
+	protoRoom  *livekit.Room                    // 原始房间数据
+	internal   *livekit.RoomInternal            // 内部房间数据
+	protoProxy *utils.ProtoProxy[*livekit.Room] // 代理
+	Logger     logger.Logger                    // 日志记录器
 
-	config          WebRTCConfig
-	audioConfig     *sfu.AudioConfig
-	serverInfo      *livekit.ServerInfo
-	telemetry       telemetry.TelemetryService
-	egressLauncher  EgressLauncher
-	trackManager    *RoomTrackManager
-	agentDispatches map[string]*agentDispatch
+	config          WebRTCConfig               // WebRTC配置
+	audioConfig     *sfu.AudioConfig           // 音频配置
+	serverInfo      *livekit.ServerInfo        // 服务器信息
+	telemetry       telemetry.TelemetryService // 遥测服务
+	egressLauncher  EgressLauncher             // 出口启动器
+	trackManager    *RoomTrackManager          // 房间轨道管理器
+	agentDispatches map[string]*agentDispatch  // 代理调度器
 
 	// agents
-	agentClient agent.Client
-	agentStore  AgentStore
+	agentClient agent.Client // 代理客户端
+	agentStore  AgentStore   // 代理存储
 
 	// map of identity -> Participant
-	participants              map[livekit.ParticipantIdentity]types.LocalParticipant
-	participantOpts           map[livekit.ParticipantIdentity]*ParticipantOptions
-	participantRequestSources map[livekit.ParticipantIdentity]routing.MessageSource
-	hasPublished              map[livekit.ParticipantIdentity]bool
-	agentParticpants          map[livekit.ParticipantIdentity]*agentJob
-	bufferFactory             *buffer.FactoryOfBufferFactory
+	participants              map[livekit.ParticipantIdentity]types.LocalParticipant // 参与者
+	participantOpts           map[livekit.ParticipantIdentity]*ParticipantOptions    // 参与者选项
+	participantRequestSources map[livekit.ParticipantIdentity]routing.MessageSource  // 参与者请求源
+	hasPublished              map[livekit.ParticipantIdentity]bool                   // 是否发布
+	agentParticpants          map[livekit.ParticipantIdentity]*agentJob              // 代理参与者
+	bufferFactory             *buffer.FactoryOfBufferFactory                         // 缓冲区工厂
 
-	// batch update participant info for non-publishers
+	// batch update participant info for non-publishers // 批量更新参与者信息（非发布者）
 	batchedUpdates   map[livekit.ParticipantIdentity]*participantUpdate
-	batchedUpdatesMu sync.Mutex
+	batchedUpdatesMu sync.Mutex // 批量更新参与者信息（非发布者）的互斥锁
 
-	closed chan struct{}
+	closed chan struct{} // 关闭通道
 
-	trailer []byte
+	trailer []byte // 尾部
 
-	onParticipantChanged func(p types.LocalParticipant)
-	onRoomUpdated        func()
-	onClose              func()
+	onParticipantChanged func(p types.LocalParticipant) // 参与者变化回调
+	onRoomUpdated        func()                         // 房间更新回调
+	onClose              func()                         // 关闭回调
 
-	simulationLock                                 sync.Mutex
-	disconnectSignalOnResumeParticipants           map[livekit.ParticipantIdentity]time.Time
-	disconnectSignalOnResumeNoMessagesParticipants map[livekit.ParticipantIdentity]*disconnectSignalOnResumeNoMessages
+	simulationLock                                 sync.Mutex                                                          // 模拟锁
+	disconnectSignalOnResumeParticipants           map[livekit.ParticipantIdentity]time.Time                           // 断开连接信号恢复参与者
+	disconnectSignalOnResumeNoMessagesParticipants map[livekit.ParticipantIdentity]*disconnectSignalOnResumeNoMessages // 断开连接信号恢复参与者（没有消息）
 
-	userPacketDeduper *UserPacketDeduper
+	userPacketDeduper *UserPacketDeduper // 用户数据包去重器
 }
 
 type ParticipantOptions struct {

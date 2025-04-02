@@ -21,6 +21,7 @@ import (
 	"github.com/livekit/protocol/livekit"
 )
 
+// ClientInfo 客户端信息
 type ClientInfo struct {
 	*livekit.ClientInfo
 }

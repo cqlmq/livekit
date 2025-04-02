@@ -29,39 +29,44 @@ import (
 	"github.com/livekit/protocol/logger"
 )
 
+// ICEConnectionType 表示ICE连接类型
 type ICEConnectionType string
 
 const (
-	ICEConnectionTypeUDP     ICEConnectionType = "udp"
-	ICEConnectionTypeTCP     ICEConnectionType = "tcp"
-	ICEConnectionTypeTURN    ICEConnectionType = "turn"
-	ICEConnectionTypeUnknown ICEConnectionType = "unknown"
+	ICEConnectionTypeUDP     ICEConnectionType = "udp"     // UDP连接
+	ICEConnectionTypeTCP     ICEConnectionType = "tcp"     // TCP连接
+	ICEConnectionTypeTURN    ICEConnectionType = "turn"    // TURN连接
+	ICEConnectionTypeUnknown ICEConnectionType = "unknown" // 未知连接
 )
 
+// ICECandidateExtended 表示ICE候选者扩展
 type ICECandidateExtended struct {
 	// only one of local or remote is set. This is due to type foo in Pion
-	Local         *webrtc.ICECandidate
-	Remote        ice.Candidate
-	SelectedOrder int
-	Filtered      bool
-	Trickle       bool
+	Local         *webrtc.ICECandidate // 本地候选者
+	Remote        ice.Candidate        // 远程候选者
+	SelectedOrder int                  // 选择顺序
+	Filtered      bool                 // 过滤
+	Trickle       bool                 // 滴答
 }
 
 // --------------------------------------------
 
+// ICEConnectionInfo 表示ICE连接信息
 type ICEConnectionInfo struct {
-	Local     []*ICECandidateExtended
-	Remote    []*ICECandidateExtended
-	Transport livekit.SignalTarget
-	Type      ICEConnectionType
+	Local     []*ICECandidateExtended // 本地候选者
+	Remote    []*ICECandidateExtended // 远程候选者
+	Transport livekit.SignalTarget    // 传输目标
+	Type      ICEConnectionType       // 连接类型
 }
 
+// HasCandidates 表示是否存在候选者
 func (i *ICEConnectionInfo) HasCandidates() bool {
 	return len(i.Local) > 0 || len(i.Remote) > 0
 }
 
 // --------------------------------------------
 
+// ICEConnectionDetails 表示ICE连接详情
 type ICEConnectionDetails struct {
 	ICEConnectionInfo
 	lock          sync.Mutex
@@ -69,6 +74,7 @@ type ICEConnectionDetails struct {
 	logger        logger.Logger
 }
 
+// NewICEConnectionDetails 创建新的ICE连接详情
 func NewICEConnectionDetails(transport livekit.SignalTarget, l logger.Logger) *ICEConnectionDetails {
 	d := &ICEConnectionDetails{
 		ICEConnectionInfo: ICEConnectionInfo{
@@ -80,6 +86,7 @@ func NewICEConnectionDetails(transport livekit.SignalTarget, l logger.Logger) *I
 	return d
 }
 
+// GetInfo 获取ICE连接信息
 func (d *ICEConnectionDetails) GetInfo() *ICEConnectionInfo {
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -108,6 +115,7 @@ func (d *ICEConnectionDetails) GetInfo() *ICEConnectionInfo {
 	return info
 }
 
+// AddLocalCandidate 添加本地候选者
 func (d *ICEConnectionDetails) AddLocalCandidate(c *webrtc.ICECandidate, filtered, trickle bool) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -124,6 +132,7 @@ func (d *ICEConnectionDetails) AddLocalCandidate(c *webrtc.ICECandidate, filtere
 	})
 }
 
+// AddLocalICECandidate 添加本地ICE候选者
 func (d *ICEConnectionDetails) AddLocalICECandidate(c ice.Candidate, filtered, trickle bool) {
 	candidate, err := unmarshalCandidate(c)
 	if err != nil {
@@ -134,6 +143,7 @@ func (d *ICEConnectionDetails) AddLocalICECandidate(c ice.Candidate, filtered, t
 	d.AddLocalCandidate(candidate, filtered, trickle)
 }
 
+// AddRemoteCandidate 添加远程候选者
 func (d *ICEConnectionDetails) AddRemoteCandidate(c webrtc.ICECandidateInit, filtered, trickle, canUpdate bool) {
 	candidate, err := unmarshalICECandidate(c)
 	if err != nil {
@@ -143,6 +153,7 @@ func (d *ICEConnectionDetails) AddRemoteCandidate(c webrtc.ICECandidateInit, fil
 	d.AddRemoteICECandidate(candidate, filtered, trickle, canUpdate)
 }
 
+// AddRemoteICECandidate 添加远程ICE候选者
 func (d *ICEConnectionDetails) AddRemoteICECandidate(candidate ice.Candidate, filtered, trickle, canUpdate bool) {
 	if candidate == nil {
 		// end-of-candidates candidate
@@ -168,6 +179,7 @@ func (d *ICEConnectionDetails) AddRemoteICECandidate(candidate ice.Candidate, fi
 	})
 }
 
+// Clear 清除ICE连接详情
 func (d *ICEConnectionDetails) Clear() {
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -176,6 +188,7 @@ func (d *ICEConnectionDetails) Clear() {
 	d.Type = ICEConnectionTypeUnknown
 }
 
+// SetSelectedPair 设置选中的候选者对
 func (d *ICEConnectionDetails) SetSelectedPair(pair *webrtc.ICECandidatePair) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -240,6 +253,7 @@ func (d *ICEConnectionDetails) SetSelectedPair(pair *webrtc.ICECandidatePair) {
 
 // -------------------------------------------------------------
 
+// isCandidateEqualTo 判断两个候选者是否相等
 func isCandidateEqualTo(c1, c2 *webrtc.ICECandidate) bool {
 	if c1 == nil && c2 == nil {
 		return true
@@ -258,6 +272,7 @@ func isCandidateEqualTo(c1, c2 *webrtc.ICECandidate) bool {
 		c1.TCPType == c2.TCPType
 }
 
+// isICECandidateEqualTo 判断两个ICE候选者是否相等
 func isICECandidateEqualTo(c1, c2 ice.Candidate) bool {
 	if c1 == nil && c2 == nil {
 		return true
@@ -275,6 +290,7 @@ func isICECandidateEqualTo(c1, c2 ice.Candidate) bool {
 		c1.TCPType() == c2.TCPType()
 }
 
+// isICECandidateEqualToCandidate 判断两个ICE候选者是否相等
 func isICECandidateEqualToCandidate(c1 ice.Candidate, c2 *webrtc.ICECandidate) bool {
 	if c1 == nil && c2 == nil {
 		return true
@@ -291,6 +307,7 @@ func isICECandidateEqualToCandidate(c1 ice.Candidate, c2 *webrtc.ICECandidate) b
 		c1.TCPType().String() == c2.TCPType
 }
 
+// unmarshalICECandidate 解码ICE候选者
 func unmarshalICECandidate(c webrtc.ICECandidateInit) (ice.Candidate, error) {
 	candidateValue := strings.TrimPrefix(c.Candidate, "candidate:")
 	if candidateValue == "" {
@@ -305,6 +322,7 @@ func unmarshalICECandidate(c webrtc.ICECandidateInit) (ice.Candidate, error) {
 	return candidate, nil
 }
 
+// unmarshalCandidate 解码候选者
 func unmarshalCandidate(i ice.Candidate) (*webrtc.ICECandidate, error) {
 	var typ webrtc.ICECandidateType
 	switch i.Type() {
@@ -349,6 +367,7 @@ func unmarshalCandidate(i ice.Candidate) (*webrtc.ICECandidate, error) {
 	return &c, nil
 }
 
+// IsCandidateMDNS 判断候选者是否为MDNS
 func IsCandidateMDNS(candidate webrtc.ICECandidateInit) bool {
 	c, err := unmarshalICECandidate(candidate)
 	if err != nil {
@@ -358,6 +377,7 @@ func IsCandidateMDNS(candidate webrtc.ICECandidateInit) bool {
 	return IsICECandidateMDNS(c)
 }
 
+// IsICECandidateMDNS 判断ICE候选者是否为MDNS
 func IsICECandidateMDNS(candidate ice.Candidate) bool {
 	if candidate == nil {
 		// end-of-candidates candidate

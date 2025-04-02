@@ -38,6 +38,7 @@ type trackMonitor struct {
 	err   error
 }
 
+// ParticipantSupervisor 参与者监控器
 type ParticipantSupervisor struct {
 	params ParticipantSupervisorParams
 

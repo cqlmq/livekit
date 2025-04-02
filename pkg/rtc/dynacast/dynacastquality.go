@@ -27,27 +27,29 @@ const (
 	initialQualityUpdateWait = 10 * time.Second
 )
 
+// DynacastQualityParams 动态转码质量参数
 type DynacastQualityParams struct {
 	MimeType mime.MimeType
 	Logger   logger.Logger
 }
 
 // DynacastQuality manages max subscribed quality of a single receiver of a media track
+// 动态转码质量管理最大订阅质量的单个接收者
 type DynacastQuality struct {
-	params DynacastQualityParams
+	params DynacastQualityParams // 参数
 
 	// quality level enable/disable
-	lock                     sync.RWMutex
-	initialized              bool
-	maxSubscriberQuality     map[livekit.ParticipantID]livekit.VideoQuality
-	maxSubscriberNodeQuality map[livekit.NodeID]livekit.VideoQuality
-	maxSubscribedQuality     livekit.VideoQuality
-	maxQualityTimer          *time.Timer
-	regressTo                *DynacastQuality
-
-	onSubscribedMaxQualityChange func(mimeType mime.MimeType, maxSubscribedQuality livekit.VideoQuality)
+	lock                         sync.RWMutex
+	initialized                  bool                                                                    // 初始化
+	maxSubscriberQuality         map[livekit.ParticipantID]livekit.VideoQuality                          // 最大订阅者质量
+	maxSubscriberNodeQuality     map[livekit.NodeID]livekit.VideoQuality                                 // 最大订阅者节点质量
+	maxSubscribedQuality         livekit.VideoQuality                                                    // 最大订阅质量
+	maxQualityTimer              *time.Timer                                                             // 最大质量定时器
+	regressTo                    *DynacastQuality                                                        // 退化到
+	onSubscribedMaxQualityChange func(mimeType mime.MimeType, maxSubscribedQuality livekit.VideoQuality) // 订阅最大质量变化回调
 }
 
+// NewDynacastQuality 创建新的动态转码质量
 func NewDynacastQuality(params DynacastQualityParams) *DynacastQuality {
 	return &DynacastQuality{
 		params:                   params,
@@ -56,24 +58,29 @@ func NewDynacastQuality(params DynacastQualityParams) *DynacastQuality {
 	}
 }
 
+// Start 启动动态转码质量
 func (d *DynacastQuality) Start() {
 	d.reset()
 }
 
+// Restart 重启动态转码质量
 func (d *DynacastQuality) Restart() {
 	d.reset()
 }
 
+// Stop 停止动态转码质量
 func (d *DynacastQuality) Stop() {
 	d.stopMaxQualityTimer()
 }
 
+// OnSubscribedMaxQualityChange 设置订阅最大质量变化回调
 func (d *DynacastQuality) OnSubscribedMaxQualityChange(f func(mimeType mime.MimeType, maxSubscribedQuality livekit.VideoQuality)) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	d.onSubscribedMaxQualityChange = f
 }
 
+// NotifySubscriberMaxQuality 通知订阅者最大质量
 func (d *DynacastQuality) NotifySubscriberMaxQuality(subscriberID livekit.ParticipantID, quality livekit.VideoQuality) {
 	d.params.Logger.Debugw(
 		"setting subscriber max quality",
@@ -99,6 +106,7 @@ func (d *DynacastQuality) NotifySubscriberMaxQuality(subscriberID livekit.Partic
 	d.updateQualityChange(false)
 }
 
+// NotifySubscriberNodeMaxQuality 通知订阅者节点最大质量
 func (d *DynacastQuality) NotifySubscriberNodeMaxQuality(nodeID livekit.NodeID, quality livekit.VideoQuality) {
 	d.params.Logger.Debugw(
 		"setting subscriber node max quality",
@@ -125,6 +133,7 @@ func (d *DynacastQuality) NotifySubscriberNodeMaxQuality(nodeID livekit.NodeID, 
 	d.updateQualityChange(false)
 }
 
+// RegressTo 退化到
 func (d *DynacastQuality) RegressTo(other *DynacastQuality) {
 	d.lock.Lock()
 	d.regressTo = other
@@ -160,6 +169,7 @@ func (d *DynacastQuality) RegressTo(other *DynacastQuality) {
 	other.Restart()
 }
 
+// reset 重置动态转码质量
 func (d *DynacastQuality) reset() {
 	d.lock.Lock()
 	d.initialized = false
@@ -168,6 +178,7 @@ func (d *DynacastQuality) reset() {
 	d.startMaxQualityTimer()
 }
 
+// updateQualityChange 更新动态转码质量
 func (d *DynacastQuality) updateQualityChange(force bool) {
 	d.lock.Lock()
 	maxSubscribedQuality := livekit.VideoQuality_OFF
@@ -204,6 +215,7 @@ func (d *DynacastQuality) updateQualityChange(force bool) {
 	}
 }
 
+// startMaxQualityTimer 启动最大质量定时器
 func (d *DynacastQuality) startMaxQualityTimer() {
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -219,6 +231,7 @@ func (d *DynacastQuality) startMaxQualityTimer() {
 	})
 }
 
+// stopMaxQualityTimer 停止最大质量定时器
 func (d *DynacastQuality) stopMaxQualityTimer() {
 	d.lock.Lock()
 	defer d.lock.Unlock()

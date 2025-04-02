@@ -62,33 +62,35 @@ type iceConfigCacheKey struct {
 
 // RoomManager manages rooms and its interaction with participants.
 // It's responsible for creating, deleting rooms, as well as running sessions for participants
+// RoomManager 管理房间及其与参与者的交互。
+// 负责创建、删除房间，以及为参与者运行会话
 type RoomManager struct {
 	lock sync.RWMutex
 
-	config            *config.Config
-	rtcConfig         *rtc.WebRTCConfig
-	serverInfo        *livekit.ServerInfo
-	currentNode       routing.LocalNode
-	router            routing.Router
-	roomAllocator     RoomAllocator
-	roomManagerServer rpc.TypedRoomManagerServer
-	roomStore         ObjectStore
-	telemetry         telemetry.TelemetryService
-	clientConfManager clientconfiguration.ClientConfigurationManager
-	agentClient       agent.Client
-	agentStore        AgentStore
-	egressLauncher    rtc.EgressLauncher
-	versionGenerator  utils.TimedVersionGenerator
-	turnAuthHandler   *TURNAuthHandler
-	bus               psrpc.MessageBus
+	config            *config.Config                                 // 配置
+	rtcConfig         *rtc.WebRTCConfig                              // WebRTC配置
+	serverInfo        *livekit.ServerInfo                            // 服务器信息
+	currentNode       routing.LocalNode                              // 当前节点
+	router            routing.Router                                 // 路由器
+	roomAllocator     RoomAllocator                                  // 房间分配器
+	roomManagerServer rpc.TypedRoomManagerServer                     // 房间管理器服务器
+	roomStore         ObjectStore                                    // 对象存储
+	telemetry         telemetry.TelemetryService                     // 遥测服务
+	clientConfManager clientconfiguration.ClientConfigurationManager // 客户端配置管理器
+	agentClient       agent.Client                                   // 代理客户端
+	agentStore        AgentStore                                     // 代理存储
+	egressLauncher    rtc.EgressLauncher                             // 出口启动器
+	versionGenerator  utils.TimedVersionGenerator                    // 版本生成器
+	turnAuthHandler   *TURNAuthHandler                               // TURN认证处理器
+	bus               psrpc.MessageBus                               // 消息总线
 
-	rooms map[livekit.RoomName]*rtc.Room
+	rooms map[livekit.RoomName]*rtc.Room // 房间数据
 
-	roomServers          utils.MultitonService[rpc.RoomTopic]
-	agentDispatchServers utils.MultitonService[rpc.RoomTopic]
-	participantServers   utils.MultitonService[rpc.ParticipantTopic]
+	roomServers          utils.MultitonService[rpc.RoomTopic]        // 房间服务器
+	agentDispatchServers utils.MultitonService[rpc.RoomTopic]        // 代理调度服务器
+	participantServers   utils.MultitonService[rpc.ParticipantTopic] // 参与者服务器
 
-	iceConfigCache *sutils.IceConfigCache[iceConfigCacheKey]
+	iceConfigCache *sutils.IceConfigCache[iceConfigCacheKey] // ICE配置缓存
 
 	forwardStats *sfu.ForwardStats
 }
@@ -145,7 +147,10 @@ func NewLocalRoomManager(
 		},
 	}
 
-	r.roomManagerServer, err = rpc.NewTypedRoomManagerServer(r, bus, rpc.WithServerLogger(logger.GetLogger()), middleware.WithServerMetrics(rpc.PSRPCMetricsObserver{}), psrpc.WithServerChannelSize(conf.PSRPC.BufferSize))
+	r.roomManagerServer, err = rpc.NewTypedRoomManagerServer(r, bus,
+		rpc.WithServerLogger(logger.GetLogger()),
+		middleware.WithServerMetrics(rpc.PSRPCMetricsObserver{}),
+		psrpc.WithServerChannelSize(conf.PSRPC.BufferSize))
 	if err != nil {
 		return nil, err
 	}

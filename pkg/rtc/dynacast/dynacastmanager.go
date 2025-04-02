@@ -29,30 +29,33 @@ import (
 	"github.com/livekit/livekit-server/pkg/utils"
 )
 
+// DynacastManagerParams 动态转码管理器参数
 type DynacastManagerParams struct {
-	DynacastPauseDelay time.Duration
-	Logger             logger.Logger
+	DynacastPauseDelay time.Duration // 动态转码暂停延迟
+	Logger             logger.Logger // 日志记录器
 }
 
+// DynacastManager 动态转码管理器
 type DynacastManager struct {
-	params DynacastManagerParams
+	params DynacastManagerParams // 参数
 
-	lock                          sync.RWMutex
-	regressedCodec                map[mime.MimeType]struct{}
-	dynacastQuality               map[mime.MimeType]*DynacastQuality
-	maxSubscribedQuality          map[mime.MimeType]livekit.VideoQuality
-	committedMaxSubscribedQuality map[mime.MimeType]livekit.VideoQuality
+	lock                          sync.RWMutex                           // 互斥锁
+	regressedCodec                map[mime.MimeType]struct{}             // 已退化的编码器
+	dynacastQuality               map[mime.MimeType]*DynacastQuality     // 动态转码质量
+	maxSubscribedQuality          map[mime.MimeType]livekit.VideoQuality // 最大订阅质量
+	committedMaxSubscribedQuality map[mime.MimeType]livekit.VideoQuality // 已提交的最大订阅质量
 
-	maxSubscribedQualityDebounce        func(func())
-	maxSubscribedQualityDebouncePending bool
+	maxSubscribedQualityDebounce        func(func()) // 最大订阅质量防抖
+	maxSubscribedQualityDebouncePending bool         // 最大订阅质量防抖等待
 
-	qualityNotifyOpQueue *utils.OpsQueue
+	qualityNotifyOpQueue *utils.OpsQueue // 质量通知操作队列
 
-	isClosed bool
+	isClosed bool // 是否关闭
 
-	onSubscribedMaxQualityChange func(subscribedQualities []*livekit.SubscribedCodec, maxSubscribedQualities []types.SubscribedCodecQuality)
+	onSubscribedMaxQualityChange func(subscribedQualities []*livekit.SubscribedCodec, maxSubscribedQualities []types.SubscribedCodecQuality) // 订阅最大质量变化回调
 }
 
+// NewDynacastManager 创建新的动态转码管理器
 func NewDynacastManager(params DynacastManagerParams) *DynacastManager {
 	if params.Logger == nil {
 		params.Logger = logger.GetLogger()
@@ -77,16 +80,19 @@ func NewDynacastManager(params DynacastManagerParams) *DynacastManager {
 	return d
 }
 
+// OnSubscribedMaxQualityChange 设置订阅最大质量变化回调
 func (d *DynacastManager) OnSubscribedMaxQualityChange(f func(subscribedQualities []*livekit.SubscribedCodec, maxSubscribedQualities []types.SubscribedCodecQuality)) {
 	d.lock.Lock()
 	d.onSubscribedMaxQualityChange = f
 	d.lock.Unlock()
 }
 
+// AddCodec 添加编码器
 func (d *DynacastManager) AddCodec(mime mime.MimeType) {
 	d.getOrCreateDynacastQuality(mime)
 }
 
+// HandleCodecRegression 处理编码器退化
 func (d *DynacastManager) HandleCodecRegression(fromMime, toMime mime.MimeType) {
 	fromDq := d.getOrCreateDynacastQuality(fromMime)
 
@@ -117,6 +123,7 @@ func (d *DynacastManager) HandleCodecRegression(fromMime, toMime mime.MimeType) 
 	fromDq.RegressTo(d.getOrCreateDynacastQuality(toMime))
 }
 
+// Restart 重启动态转码管理器
 func (d *DynacastManager) Restart() {
 	d.lock.Lock()
 	d.committedMaxSubscribedQuality = make(map[mime.MimeType]livekit.VideoQuality)
@@ -129,6 +136,7 @@ func (d *DynacastManager) Restart() {
 	}
 }
 
+// Close 关闭动态转码管理器
 func (d *DynacastManager) Close() {
 	d.qualityNotifyOpQueue.Stop()
 
@@ -148,6 +156,8 @@ func (d *DynacastManager) Close() {
 // where subscribed quality needs to sent to the provider immediately.
 // This bypasses any debouncing and forces a subscribed quality update
 // with immediate effect.
+// 中文意思： 在某些情况下，比如轨道取消静音或从不同节点流式传输，需要立即发送订阅质量。
+// 这会绕过任何防抖，并强制进行立即生效的订阅质量更新。
 func (d *DynacastManager) ForceUpdate() {
 	d.update(true)
 }
@@ -156,6 +166,8 @@ func (d *DynacastManager) ForceUpdate() {
 // is waiting to be closed, a node is not streaming a track. This can
 // be used to force an update announcing that subscribed quality is OFF,
 // i.e. indicating not pulling track any more.
+// 中文意思： 在某些情况下，轨道可能处于待关闭状态。当轨道等待关闭时，节点不再流式传输轨道。
+// 这可以用于强制更新，宣布订阅质量为OFF，即表示不再拉取轨道。
 func (d *DynacastManager) ForceQuality(quality livekit.VideoQuality) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -167,6 +179,7 @@ func (d *DynacastManager) ForceQuality(quality livekit.VideoQuality) {
 	d.enqueueSubscribedQualityChange()
 }
 
+// NotifySubscriberMaxQuality 通知订阅者最大质量
 func (d *DynacastManager) NotifySubscriberMaxQuality(subscriberID livekit.ParticipantID, mime mime.MimeType, quality livekit.VideoQuality) {
 	dq := d.getOrCreateDynacastQuality(mime)
 	if dq != nil {
@@ -174,6 +187,7 @@ func (d *DynacastManager) NotifySubscriberMaxQuality(subscriberID livekit.Partic
 	}
 }
 
+// NotifySubscriberNodeMaxQuality 通知订阅者节点最大质量
 func (d *DynacastManager) NotifySubscriberNodeMaxQuality(nodeID livekit.NodeID, qualities []types.SubscribedCodecQuality) {
 	for _, quality := range qualities {
 		dq := d.getOrCreateDynacastQuality(quality.CodecMime)
@@ -183,6 +197,7 @@ func (d *DynacastManager) NotifySubscriberNodeMaxQuality(nodeID livekit.NodeID, 
 	}
 }
 
+// getOrCreateDynacastQuality 获取或创建动态转码质量
 func (d *DynacastManager) getOrCreateDynacastQuality(mimeType mime.MimeType) *DynacastQuality {
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -206,10 +221,12 @@ func (d *DynacastManager) getOrCreateDynacastQuality(mimeType mime.MimeType) *Dy
 	return dq
 }
 
+// getDynacastQualitiesLocked 获取动态转码质量
 func (d *DynacastManager) getDynacastQualitiesLocked() []*DynacastQuality {
 	return maps.Values(d.dynacastQuality)
 }
 
+// updateMaxQualityForMime 更新最大质量
 func (d *DynacastManager) updateMaxQualityForMime(mime mime.MimeType, maxQuality livekit.VideoQuality) {
 	d.lock.Lock()
 	if _, ok := d.regressedCodec[mime]; !ok {
@@ -220,6 +237,7 @@ func (d *DynacastManager) updateMaxQualityForMime(mime mime.MimeType, maxQuality
 	d.update(false)
 }
 
+// update 更新动态转码管理器
 func (d *DynacastManager) update(force bool) {
 	d.lock.Lock()
 
@@ -301,6 +319,7 @@ func (d *DynacastManager) update(force bool) {
 	d.lock.Unlock()
 }
 
+// enqueueSubscribedQualityChange 入队订阅质量变化
 func (d *DynacastManager) enqueueSubscribedQualityChange() {
 	if d.isClosed || d.onSubscribedMaxQualityChange == nil {
 		return

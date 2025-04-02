@@ -44,6 +44,7 @@ type PublicationMonitorParams struct {
 	Logger                    logger.Logger
 }
 
+// PublicationMonitor 发布监控器
 type PublicationMonitor struct {
 	params PublicationMonitorParams
 

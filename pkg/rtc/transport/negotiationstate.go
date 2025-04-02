@@ -16,16 +16,18 @@ package transport
 
 import "fmt"
 
+// NegotiationState 协商状态
 type NegotiationState int
 
 const (
-	NegotiationStateNone NegotiationState = iota
+	NegotiationStateNone NegotiationState = iota // 协商状态为空
 	// waiting for remote description
-	NegotiationStateRemote
+	NegotiationStateRemote // 等待远程描述
 	// need to Negotiate again
-	NegotiationStateRetry
+	NegotiationStateRetry // 需要重新协商
 )
 
+// String 返回协商状态的字符串表示
 func (n NegotiationState) String() string {
 	switch n {
 	case NegotiationStateNone:

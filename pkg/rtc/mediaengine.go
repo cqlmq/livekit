@@ -24,18 +24,23 @@ import (
 	"github.com/livekit/protocol/livekit"
 )
 
+// OpusCodecCapability Opus 编码器能力
 var OpusCodecCapability = webrtc.RTPCodecCapability{
 	MimeType:    mime.MimeTypeOpus.String(),
 	ClockRate:   48000,
 	Channels:    2,
 	SDPFmtpLine: "minptime=10;useinbandfec=1",
 }
+
+// RedCodecCapability RED 编码器能力
 var RedCodecCapability = webrtc.RTPCodecCapability{
 	MimeType:    mime.MimeTypeRED.String(),
 	ClockRate:   48000,
 	Channels:    2,
 	SDPFmtpLine: "111/111",
 }
+
+// videoRTX 视频 RTX 编码器能力
 var videoRTX = webrtc.RTPCodecCapability{
 	MimeType:  mime.MimeTypeRTX.String(),
 	ClockRate: 90000,

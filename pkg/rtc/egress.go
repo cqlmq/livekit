@@ -27,10 +27,12 @@ import (
 	"github.com/livekit/protocol/webhook"
 )
 
+// EgressLauncher 出口启动器
 type EgressLauncher interface {
 	StartEgress(context.Context, *rpc.StartEgressRequest) (*livekit.EgressInfo, error)
 }
 
+// StartParticipantEgress 启动参与者出口
 func StartParticipantEgress(
 	ctx context.Context,
 	launcher EgressLauncher,
@@ -92,6 +94,7 @@ func startParticipantEgress(
 	return req, err
 }
 
+// StartTrackEgress 启动轨道出口
 func StartTrackEgress(
 	ctx context.Context,
 	launcher EgressLauncher,
