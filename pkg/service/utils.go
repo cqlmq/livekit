@@ -26,6 +26,15 @@ import (
 	"github.com/livekit/protocol/logger"
 )
 
+// handleError 处理错误
+// 增加方法与路径到错误日志中，打印错误信息，返回状态码和错误信息到客户端
+//
+// 参数:
+// - w http.ResponseWriter: 响应写入器
+// - r *http.Request: 请求
+// - status int: 错误状态码
+// - err error: 错误
+// - keysAndValues ...interface{}: 可变参数
 func handleError(w http.ResponseWriter, r *http.Request, status int, err error, keysAndValues ...interface{}) {
 	keysAndValues = append(keysAndValues, "status", status)
 	if r != nil && r.URL != nil {
@@ -38,10 +47,22 @@ func handleError(w http.ResponseWriter, r *http.Request, status int, err error, 
 	_, _ = w.Write([]byte(err.Error()))
 }
 
+// boolValue 将字符串转换为布尔值
+// 如果字符串为"1"或"true"，则返回true，否则返回false
+//
+// 参数:
+// - s string: 字符串
 func boolValue(s string) bool {
 	return s == "1" || s == "true"
 }
 
+// RemoveDoubleSlashes 移除URL路径中的双斜杠 （中间件函数，在NewLivekitServer中调用）
+// 如果URL路径以双斜杠开头，则移除第一个斜杠
+//
+// 参数:
+// - w http.ResponseWriter: 响应写入器
+// - r *http.Request: 请求
+// - next http.HandlerFunc: 下一个处理器
 func RemoveDoubleSlashes(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	if strings.HasPrefix(r.URL.Path, "//") {
 		r.URL.Path = r.URL.Path[1:]
@@ -49,14 +70,16 @@ func RemoveDoubleSlashes(w http.ResponseWriter, r *http.Request, next http.Handl
 	next(w, r)
 }
 
+// IsValidDomain 检查域名是否有效
 func IsValidDomain(domain string) bool {
 	domainRegexp := regexp.MustCompile(`^(?i)[a-z0-9-]+(\.[a-z0-9-]+)+\.?$`)
 	return domainRegexp.MatchString(domain)
 }
 
-// 获取客户端真实IP地址，先检查Cloudflare头，如果检查失败，则使用X-Forwarded-For头
+// GetClientIP 获取客户端IP地址
 func GetClientIP(r *http.Request) string {
 	// CF proxy typically is first thing the user reaches
+	// 通常是用户访问的第一个代理
 	if ip := r.Header.Get("CF-Connecting-IP"); ip != "" {
 		return ip
 	}
@@ -66,6 +89,7 @@ func GetClientIP(r *http.Request) string {
 	if ip := r.Header.Get("X-Real-IP"); ip != "" {
 		return ip
 	}
+	// 如果以上都没有，则使用请求的远程地址
 	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
 	return ip
 }
@@ -75,12 +99,12 @@ func SetRoomConfiguration(createRequest *livekit.CreateRoomRequest, conf *liveki
 	if conf == nil {
 		return
 	}
-	createRequest.Agents = conf.Agents
-	createRequest.Egress = conf.Egress
-	createRequest.EmptyTimeout = conf.EmptyTimeout
-	createRequest.DepartureTimeout = conf.DepartureTimeout
-	createRequest.MaxParticipants = conf.MaxParticipants
-	createRequest.MinPlayoutDelay = conf.MinPlayoutDelay
-	createRequest.MaxPlayoutDelay = conf.MaxPlayoutDelay
-	createRequest.SyncStreams = conf.SyncStreams
+	createRequest.Agents = conf.Agents                     // 代理
+	createRequest.Egress = conf.Egress                     // 出口
+	createRequest.EmptyTimeout = conf.EmptyTimeout         // 空闲超时
+	createRequest.DepartureTimeout = conf.DepartureTimeout // 离开超时
+	createRequest.MaxParticipants = conf.MaxParticipants   // 最大参与者
+	createRequest.MinPlayoutDelay = conf.MinPlayoutDelay   // 最小播放延迟
+	createRequest.MaxPlayoutDelay = conf.MaxPlayoutDelay   // 最大播放延迟
+	createRequest.SyncStreams = conf.SyncStreams           // 同步流
 }

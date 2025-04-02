@@ -66,6 +66,9 @@ type ServiceStore interface {
 	ListParticipants(ctx context.Context, roomName livekit.RoomName) ([]*livekit.ParticipantInfo, error)
 }
 
+// 出口存储接口
+// 提供出口的存储、加载、列表等操作
+//
 //counterfeiter:generate . EgressStore
 type EgressStore interface {
 	StoreEgress(ctx context.Context, info *livekit.EgressInfo) error
@@ -74,6 +77,9 @@ type EgressStore interface {
 	UpdateEgress(ctx context.Context, info *livekit.EgressInfo) error
 }
 
+// 入口存储接口
+// 提供入口的存储、加载、列表等操作
+//
 //counterfeiter:generate . IngressStore
 type IngressStore interface {
 	StoreIngress(ctx context.Context, info *livekit.IngressInfo) error
