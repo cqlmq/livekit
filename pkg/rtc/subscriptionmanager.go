@@ -65,7 +65,7 @@ type SubscriptionManagerParams struct {
 	UseOneShotSignallingMode bool
 }
 
-// SubscriptionManager manages a participant's subscriptions
+// SubscriptionManager 管理参与者的订阅
 type SubscriptionManager struct {
 	params              SubscriptionManagerParams
 	lock                sync.RWMutex

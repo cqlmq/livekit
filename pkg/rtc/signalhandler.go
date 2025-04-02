@@ -21,6 +21,7 @@ import (
 	"github.com/livekit/livekit-server/pkg/rtc/types"
 )
 
+// HandleParticipantSignal 处理参与者信令
 func HandleParticipantSignal(room types.Room, participant types.LocalParticipant, req *livekit.SignalRequest, pLogger logger.Logger) error {
 	participant.UpdateLastSeenSignal()
 

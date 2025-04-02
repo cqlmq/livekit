@@ -34,6 +34,7 @@ type MediaLossProxyParams struct {
 	Logger logger.Logger
 }
 
+// MediaLossProxy 媒体丢失代理
 type MediaLossProxy struct {
 	params MediaLossProxyParams
 

@@ -25,6 +25,7 @@ import (
 )
 
 // RoomTrackManager holds tracks that are published to the room
+// 房间轨道管理器持有发布到房间的轨道
 type RoomTrackManager struct {
 	lock            sync.RWMutex
 	changedNotifier *utils.ChangeNotifierManager

@@ -19,11 +19,11 @@ import (
 )
 
 var (
-	PacketFactory *sync.Pool
+	PacketFactory *sync.Pool // 包工厂，一个用于缓存和重用内存的池
 )
 
 func init() {
-	// Init packet factory
+	// 初始化包工厂
 	PacketFactory = &sync.Pool{
 		New: func() interface{} {
 			b := make([]byte, 1460)

@@ -40,6 +40,7 @@ import (
 
 // MediaTrack represents a WebRTC track that needs to be forwarded
 // Implements MediaTrack and PublishedTrack interface
+// 中文注释： 表示一个需要转发的 WebRTC 轨道，实现了 MediaTrack 和 PublishedTrack 接口
 type MediaTrack struct {
 	params         MediaTrackParams
 	numUpTracks    atomic.Uint32
@@ -60,26 +61,28 @@ type MediaTrack struct {
 	regressionTargetCodecReceived bool
 }
 
+// MediaTrackParams 媒体轨道参数
 type MediaTrackParams struct {
-	SignalCid             string
-	SdpCid                string
-	ParticipantID         livekit.ParticipantID
-	ParticipantIdentity   livekit.ParticipantIdentity
-	ParticipantVersion    uint32
-	BufferFactory         *buffer.Factory
-	ReceiverConfig        ReceiverConfig
-	SubscriberConfig      DirectionConfig
-	PLIThrottleConfig     sfu.PLIThrottleConfig
-	AudioConfig           sfu.AudioConfig
-	VideoConfig           config.VideoConfig
-	Telemetry             telemetry.TelemetryService
-	Logger                logger.Logger
-	SimTracks             map[uint32]SimulcastTrackInfo
-	OnRTCP                func([]rtcp.Packet)
-	ForwardStats          *sfu.ForwardStats
-	OnTrackEverSubscribed func(livekit.TrackID)
+	SignalCid             string                        // 信号CID
+	SdpCid                string                        // SDP CID
+	ParticipantID         livekit.ParticipantID         // 参与者ID
+	ParticipantIdentity   livekit.ParticipantIdentity   // 参与者身份
+	ParticipantVersion    uint32                        // 参与者版本
+	BufferFactory         *buffer.Factory               // 缓冲区工厂
+	ReceiverConfig        ReceiverConfig                // 接收器配置
+	SubscriberConfig      DirectionConfig               // 方向配置
+	PLIThrottleConfig     sfu.PLIThrottleConfig         // PLI 限流配置
+	AudioConfig           sfu.AudioConfig               // 音频配置
+	VideoConfig           config.VideoConfig            // 视频配置
+	Telemetry             telemetry.TelemetryService    // 遥测服务
+	Logger                logger.Logger                 // 日志记录器
+	SimTracks             map[uint32]SimulcastTrackInfo // 模拟轨道信息
+	OnRTCP                func([]rtcp.Packet)           // RTCP 处理函数
+	ForwardStats          *sfu.ForwardStats             // 转发统计
+	OnTrackEverSubscribed func(livekit.TrackID)         // 轨道订阅事件
 }
 
+// NewMediaTrack 创建媒体轨道
 func NewMediaTrack(params MediaTrackParams, ti *livekit.TrackInfo) *MediaTrack {
 	t := &MediaTrack{
 		params: params,
