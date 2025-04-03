@@ -15,74 +15,66 @@
 package routing
 
 import (
-	"encoding/json"
 	"runtime"
 	"sync"
 	"time"
 
 	"github.com/livekit/protocol/livekit"
-	"github.com/livekit/protocol/logger"
 	"github.com/livekit/protocol/utils"
 	"github.com/livekit/protocol/utils/guid"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/livekit/livekit-server/pkg/config"
-	"github.com/livekit/livekit-server/pkg/telemetry/prometheus"
 )
 
-// LocalNode 本地节点接口
 type LocalNode interface {
-	Clone() *livekit.Node                 // 克隆一个节点
-	ToProtoBytes() ([]byte, error)        // 将节点转换成[]byte
-	SetNodeID(nodeID livekit.NodeID)      // 设置节点ID
-	NodeID() livekit.NodeID               // 获取节点ID
-	NodeType() livekit.NodeType           // 获取节点类型
-	NodeIP() string                       // 获取节点IP
-	Region() string                       // 获取节点区域
-	SetState(state livekit.NodeState)     // 设置节点状态
-	SetStats(stats *livekit.NodeStats)    // 设置节点统计信息
-	UpdateNodeStats() bool                // 更新节点统计信息
-	SecondsSinceNodeStatsUpdate() float64 // 获取节点统计信息更新时间
+	Clone() *livekit.Node
+	SetNodeID(nodeID livekit.NodeID)
+	NodeID() livekit.NodeID
+	NodeType() livekit.NodeType
+	NodeIP() string
+	Region() string
+	SetState(state livekit.NodeState)
+	SetStats(stats *livekit.NodeStats)
+	UpdateNodeStats() bool
+	SecondsSinceNodeStatsUpdate() float64
 }
 
-// LocalNodeImpl 本地节点实现
 type LocalNodeImpl struct {
 	lock sync.RWMutex
-	node *livekit.Node // 节点结构，基于proto的Node结构
+	node *livekit.Node
 
-	// previous stats for computing averages
-	// 前一个统计信息，用于计算平均值
-	prevStats *livekit.NodeStats
+	nodeStats *NodeStats
 }
 
-// NewLocalNode 创建一个本地节点
-// 没有配置也行，但是需要设置NodeIP及Region （以后看是否有这样的场景）
 func NewLocalNode(conf *config.Config) (*LocalNodeImpl, error) {
+	nodeID := guid.New(utils.NodePrefix)
 	if conf != nil && conf.RTC.NodeIP == "" {
 		return nil, ErrIPNotSet
 	}
-
-	// 生成一个唯一的节点ID b57编码 所以采用了自定义的guid.New
-	nodeID := guid.New(utils.NodePrefix)
+	nowUnix := time.Now().Unix()
 	l := &LocalNodeImpl{
 		node: &livekit.Node{
 			Id:      nodeID,
 			NumCpus: uint32(runtime.NumCPU()),
 			State:   livekit.NodeState_SERVING,
 			Stats: &livekit.NodeStats{
-				StartedAt: time.Now().Unix(),
-				UpdatedAt: time.Now().Unix(),
+				StartedAt: nowUnix,
+				UpdatedAt: nowUnix,
 			},
 		},
 	}
+	var nsc *config.NodeStatsConfig
 	if conf != nil {
 		l.node.Ip = conf.RTC.NodeIP
 		l.node.Region = conf.Region
+
+		nsc = &conf.NodeStats
 	}
+	l.nodeStats = NewNodeStats(nsc, nowUnix)
+
 	return l, nil
 }
 
-// 从livekit.Node 新创创建 LocalNodeImpl
 func NewLocalNodeFromNodeProto(node *livekit.Node) (*LocalNodeImpl, error) {
 	return &LocalNodeImpl{node: utils.CloneProto(node)}, nil
 }
@@ -92,15 +84,6 @@ func (l *LocalNodeImpl) Clone() *livekit.Node {
 	defer l.lock.RUnlock()
 
 	return utils.CloneProto(l.node)
-}
-
-// ToProtoBytes 将节点转换成proto的[]byte
-// 这样是否可以减少一次克隆呢？
-func (l *LocalNodeImpl) ToProtoBytes() ([]byte, error) {
-	l.lock.RLock()
-	defer l.lock.RUnlock()
-
-	return proto.Marshal(l.node)
 }
 
 // for testing only
@@ -154,38 +137,22 @@ func (l *LocalNodeImpl) SetStats(stats *livekit.NodeStats) {
 	l.node.Stats = utils.CloneProto(stats)
 }
 
-// 更新节点统计信息
 func (l *LocalNodeImpl) UpdateNodeStats() bool {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
-	if l.prevStats == nil {
-		l.prevStats = l.node.Stats
-	}
-	updated, computedAvg, err := prometheus.GetUpdatedNodeStats(l.node.Stats, l.prevStats)
+	stats, err := l.nodeStats.UpdateAndGetNodeStats()
 	if err != nil {
-		logger.Errorw("could not update node stats", err)
 		return false
 	}
-	l.node.Stats = updated
-	if computedAvg {
-		l.prevStats = updated
-	}
+
+	l.node.Stats = stats
 	return true
 }
 
-// 获取节点统计信息更新时间过去多少秒
 func (l *LocalNodeImpl) SecondsSinceNodeStatsUpdate() float64 {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
 
 	return time.Since(time.Unix(l.node.Stats.UpdatedAt, 0)).Seconds()
-}
-
-// 序列化
-func (l *LocalNodeImpl) Marshal() ([]byte, error) {
-	l.lock.RLock()
-	defer l.lock.RUnlock()
-
-	return json.MarshalIndent(l.node, "", "  ")
 }

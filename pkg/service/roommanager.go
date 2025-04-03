@@ -53,8 +53,6 @@ const (
 	tokenDefaultTTL      = 10 * time.Minute
 )
 
-var affinityEpoch = time.Date(2000, 0, 0, 0, 0, 0, 0, time.UTC)
-
 type iceConfigCacheKey struct {
 	roomName            livekit.RoomName
 	participantIdentity livekit.ParticipantIdentity
@@ -473,6 +471,9 @@ func (r *RoomManager) StartSession(
 		DataChannelMaxBufferedAmount: r.config.RTC.DataChannelMaxBufferedAmount,
 		DatachannelSlowThreshold:     r.config.RTC.DatachannelSlowThreshold,
 		FireOnTrackBySdp:             true,
+		ShouldRegressCodec: func() bool {
+			return r.config.Video.CodecRegressionThreshold == 0 || room.GetParticipantCount() < r.config.Video.CodecRegressionThreshold
+		},
 	})
 	if err != nil {
 		return err
@@ -776,6 +777,10 @@ func (r *RoomManager) UpdateParticipant(ctx context.Context, req *livekit.Update
 		participant.SetPermission(req.Permission)
 	}
 	return participant.ToProto(), nil
+}
+
+func (r *RoomManager) ForwardParticipant(ctx context.Context, req *livekit.ForwardParticipantRequest) (*livekit.ForwardParticipantResponse, error) {
+	return nil, errors.New("not implemented")
 }
 
 func (r *RoomManager) DeleteRoom(ctx context.Context, req *livekit.DeleteRoomRequest) (*livekit.DeleteRoomResponse, error) {

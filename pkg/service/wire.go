@@ -43,80 +43,72 @@ import (
 	"github.com/livekit/psrpc"
 )
 
-// InitializeServer 初始化Livekit服务器
-// changed by limengqiu 2025-03-16 尝试修改redis的参数方式，测试通过
-// 采用：wire ./pkg/service 重新生成wire_gen.go文件
-// 心得体会：
-// 1、函数需要的参数，必需在wire.Build()中添加，不能使用对象的成员变量
 func InitializeServer(conf *config.Config, currentNode routing.LocalNode) (*LivekitServer, error) {
 	wire.Build(
-		wire.Bind(new(routing.MessageRouter), new(routing.Router)), // 绑定消息路由
-		wire.Bind(new(livekit.RoomService), new(*RoomService)),     // 绑定房间服务
-		wire.Bind(new(ServiceStore), new(ObjectStore)),             // 绑定服务存储
-		wire.Bind(new(IOClient), new(*IOInfoService)),              // 绑定IO客户端
-		getNodeID,                               // 获取节点ID
-		getRedisConfig,                          // 获取Redis配置
-		createRedisClient,                       // 创建Redis客户端
-		createStore,                             // 创建存储
-		createKeyProvider,                       // 创建密钥提供者
-		createWebhookNotifier,                   // 创建Webhook通知器
-		createClientConfiguration,               // 创建客户端配置
-		createForwardStats,                      // 创建转发统计
-		routing.CreateRouter,                    // 创建路由
-		getLimitConf,                            // 获取限制配置
-		config.DefaultAPIConfig,                 // 默认API配置
-		telemetry.NewAnalyticsService,           // 创建分析服务
-		telemetry.NewTelemetryService,           // 创建Telemetry服务
-		getMessageBus,                           // 获取消息总线
-		NewIOInfoService,                        // 创建IO信息服务
-		rpc.NewEgressClient,                     // 创建Egress客户端
-		rpc.NewIngressClient,                    // 创建Ingress客户端
-		getEgressStore,                          // 获取Egress存储
-		NewEgressLauncher,                       // 创建Egress启动器
-		NewEgressService,                        // 创建Egress服务
-		getIngressStore,                         // 获取Ingress存储
-		getIngressConfig,                        // 获取Ingress配置
-		NewIngressService,                       // 创建Ingress服务
-		rpc.NewSIPClient,                        // 创建SIP客户端
-		getSIPStore,                             // 获取SIP存储
-		getSIPConfig,                            // 获取SIP配置
-		NewSIPService,                           // 创建SIP服务
-		NewRoomAllocator,                        // 创建房间分配器
-		NewRoomService,                          // 创建房间服务
-		NewRTCService,                           // 创建RTC服务
-		NewAgentService,                         // 创建Agent服务
-		NewAgentDispatchService,                 // 创建Agent调度服务
-		agent.NewAgentClient,                    // 创建Agent客户端
-		getAgentStore,                           // 获取Agent存储
-		getSignalRelayConfig,                    // 获取信号Relay配置
-		NewDefaultSignalServer,                  // 创建默认信号服务器
-		routing.NewSignalClient,                 // 创建信号客户端
-		getRoomConfig,                           // 获取房间配置
-		routing.NewRoomManagerClient,            // 创建房间管理客户端
-		rpc.NewKeepalivePubSub,                  // 创建Keepalive发布订阅
-		getPSRPCConfig,                          // 获取PSRPC配置
-		getPSRPCClientParams,                    // 获取PSRPC客户端参数
-		rpc.NewTopicFormatter,                   // 创建Topic格式化器
-		rpc.NewTypedRoomClient,                  // 创建TypedRoom客户端
-		rpc.NewTypedParticipantClient,           // 创建TypedParticipant客户端
-		rpc.NewTypedAgentDispatchInternalClient, // 创建TypedAgentDispatchInternal客户端
-		NewLocalRoomManager,                     // 创建LocalRoomManager
-		NewTURNAuthHandler,                      // 创建TURNAuthHandler
-		getTURNAuthHandlerFunc,                  // 获取TURNAuthHandlerFunc
-		newInProcessTurnServer,                  // 创建InProcessTurnServer
-		utils.NewDefaultTimedVersionGenerator,   // 创建DefaultTimedVersionGenerator
-		NewLivekitServer,                        // 创建LivekitServer
+		getNodeID,
+		createRedisClient,
+		createStore,
+		wire.Bind(new(ServiceStore), new(ObjectStore)),
+		createKeyProvider,
+		createWebhookNotifier,
+		createClientConfiguration,
+		createForwardStats,
+		getNodeStatsConfig,
+		routing.CreateRouter,
+		getLimitConf,
+		config.DefaultAPIConfig,
+		wire.Bind(new(routing.MessageRouter), new(routing.Router)),
+		wire.Bind(new(livekit.RoomService), new(*RoomService)),
+		telemetry.NewAnalyticsService,
+		telemetry.NewTelemetryService,
+		getMessageBus,
+		NewIOInfoService,
+		wire.Bind(new(IOClient), new(*IOInfoService)),
+		rpc.NewEgressClient,
+		rpc.NewIngressClient,
+		getEgressStore,
+		NewEgressLauncher,
+		NewEgressService,
+		getIngressStore,
+		getIngressConfig,
+		NewIngressService,
+		rpc.NewSIPClient,
+		getSIPStore,
+		getSIPConfig,
+		NewSIPService,
+		NewRoomAllocator,
+		NewRoomService,
+		NewRTCService,
+		NewAgentService,
+		NewAgentDispatchService,
+		agent.NewAgentClient,
+		getAgentStore,
+		getSignalRelayConfig,
+		NewDefaultSignalServer,
+		routing.NewSignalClient,
+		getRoomConfig,
+		routing.NewRoomManagerClient,
+		rpc.NewKeepalivePubSub,
+		getPSRPCConfig,
+		getPSRPCClientParams,
+		rpc.NewTopicFormatter,
+		rpc.NewTypedRoomClient,
+		rpc.NewTypedParticipantClient,
+		rpc.NewTypedAgentDispatchInternalClient,
+		NewLocalRoomManager,
+		NewTURNAuthHandler,
+		getTURNAuthHandlerFunc,
+		newInProcessTurnServer,
+		utils.NewDefaultTimedVersionGenerator,
+		NewLivekitServer,
 	)
 	return &LivekitServer{}, nil
 }
 
-// InitializeRouter 初始化路由
-// 使用于listNodes函数
 func InitializeRouter(conf *config.Config, currentNode routing.LocalNode) (routing.Router, error) {
 	wire.Build(
 		createRedisClient,
 		getNodeID,
-		getRedisConfig,
 		getMessageBus,
 		getSignalRelayConfig,
 		getPSRPCConfig,
@@ -125,18 +117,17 @@ func InitializeRouter(conf *config.Config, currentNode routing.LocalNode) (routi
 		getRoomConfig,
 		routing.NewRoomManagerClient,
 		rpc.NewKeepalivePubSub,
+		getNodeStatsConfig,
 		routing.CreateRouter,
 	)
 
 	return nil, nil
 }
 
-// getNodeID 获取节点ID
 func getNodeID(currentNode routing.LocalNode) livekit.NodeID {
 	return currentNode.NodeID()
 }
 
-// createKeyProvider 创建密钥提供者
 func createKeyProvider(conf *config.Config) (auth.KeyProvider, error) {
 	// prefer keyfile if set
 	if conf.KeyFile != "" {
@@ -166,8 +157,6 @@ func createKeyProvider(conf *config.Config) (auth.KeyProvider, error) {
 	return auth.NewFileBasedKeyProviderFromMap(conf.Keys), nil
 }
 
-// createWebhookNotifier 创建Webhook通知器
-// 创建Webhook通知器，如果配置了Webhook，则创建Webhook通知器，否则返回nil
 func createWebhookNotifier(conf *config.Config, provider auth.KeyProvider) (webhook.QueuedNotifier, error) {
 	wc := conf.WebHook
 	if len(wc.URLs) == 0 {
@@ -178,19 +167,16 @@ func createWebhookNotifier(conf *config.Config, provider auth.KeyProvider) (webh
 		return nil, ErrWebHookMissingAPIKey
 	}
 
-	return webhook.NewDefaultNotifier(wc.APIKey, secret, wc.URLs), nil
+	return webhook.NewDefaultNotifier(wc, secret), nil
 }
 
-// createRedisClient 获取Redis客户端,
-func createRedisClient(conf *redisLiveKit.RedisConfig) (redis.UniversalClient, error) {
-	if !conf.IsConfigured() {
-		logger.Debugw("redis not configured, using local store")
+func createRedisClient(conf *config.Config) (redis.UniversalClient, error) {
+	if !conf.Redis.IsConfigured() {
 		return nil, nil
 	}
-	return redisLiveKit.GetRedisClient(conf)
+	return redisLiveKit.GetRedisClient(&conf.Redis)
 }
 
-// createStore 创建存储,
 func createStore(rc redis.UniversalClient) ObjectStore {
 	if rc != nil {
 		return NewRedisStore(rc)
@@ -198,8 +184,6 @@ func createStore(rc redis.UniversalClient) ObjectStore {
 	return NewLocalStore()
 }
 
-// getMessageBus 获取消息总线
-// 另一个项目了解总线的原理与功能
 func getMessageBus(rc redis.UniversalClient) psrpc.MessageBus {
 	if rc == nil {
 		return psrpc.NewLocalMessageBus()
@@ -253,33 +237,28 @@ func getSIPConfig(conf *config.Config) *config.SIPConfig {
 	return &conf.SIP
 }
 
-func getRedisConfig(conf *config.Config) *redisLiveKit.RedisConfig {
-	return &conf.Redis
-}
-
 func createClientConfiguration() clientconfiguration.ClientConfigurationManager {
 	return clientconfiguration.NewStaticClientConfigurationManager(clientconfiguration.StaticConfigurations)
 }
 
-func getLimitConf(conf *config.Config) config.LimitConfig {
-	return conf.GetLimitConfig()
+func getLimitConf(config *config.Config) config.LimitConfig {
+	return config.Limit
 }
 
-func getRoomConfig(conf *config.Config) config.RoomConfig {
-	return conf.Room
+func getRoomConfig(config *config.Config) config.RoomConfig {
+	return config.Room
 }
 
-// getSignalRelayConfig 获取信号Relay配置
-func getSignalRelayConfig(conf *config.Config) config.SignalRelayConfig {
-	return conf.SignalRelay
+func getSignalRelayConfig(config *config.Config) config.SignalRelayConfig {
+	return config.SignalRelay
 }
 
-func getPSRPCConfig(conf *config.Config) rpc.PSRPCConfig {
-	return conf.PSRPC
+func getPSRPCConfig(config *config.Config) rpc.PSRPCConfig {
+	return config.PSRPC
 }
 
-func getPSRPCClientParams(conf rpc.PSRPCConfig, bus psrpc.MessageBus) rpc.ClientParams {
-	return rpc.NewClientParams(conf, bus, logger.GetLogger(), rpc.PSRPCMetricsObserver{})
+func getPSRPCClientParams(config rpc.PSRPCConfig, bus psrpc.MessageBus) rpc.ClientParams {
+	return rpc.NewClientParams(config, bus, logger.GetLogger(), rpc.PSRPCMetricsObserver{})
 }
 
 func createForwardStats(conf *config.Config) *sfu.ForwardStats {
@@ -291,4 +270,8 @@ func createForwardStats(conf *config.Config) *sfu.ForwardStats {
 
 func newInProcessTurnServer(conf *config.Config, authHandler turn.AuthHandler) (*turn.Server, error) {
 	return NewTurnServer(conf, authHandler, false)
+}
+
+func getNodeStatsConfig(config *config.Config) config.NodeStatsConfig {
+	return config.NodeStats
 }

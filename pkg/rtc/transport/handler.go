@@ -32,26 +32,25 @@ var (
 	ErrNoAnswerHandler       = errors.New("no answer handler")
 )
 
-//counterfeiter:generate . Handler // 生成 Handler 的 counterfeiter 实现
+//counterfeiter:generate . Handler
 type Handler interface {
-	OnICECandidate(c *webrtc.ICECandidate, target livekit.SignalTarget) error // 处理 ICE 候选者
-	OnInitialConnected()                                                      // 处理初始连接
-	OnFullyEstablished()                                                      // 处理完全建立
-	OnFailed(isShortLived bool, iceConnectionInfo *types.ICEConnectionInfo)   // 处理失败
-	OnTrack(track *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver)       // 处理轨道
-	OnDataPacket(kind livekit.DataPacket_Kind, data []byte)                   // 处理数据包
-	OnDataSendError(err error)                                                // 处理数据发送错误
-	OnOffer(sd webrtc.SessionDescription) error                               // 处理 offer
-	OnAnswer(sd webrtc.SessionDescription) error                              // 处理 answer
-	OnNegotiationStateChanged(state NegotiationState)                         // 处理协商状态变化
-	OnNegotiationFailed()                                                     // 处理协商失败
-	OnStreamStateChange(update *streamallocator.StreamStateUpdate) error      // 处理流状态变化
+	OnICECandidate(c *webrtc.ICECandidate, target livekit.SignalTarget) error
+	OnInitialConnected()
+	OnFullyEstablished()
+	OnFailed(isShortLived bool, iceConnectionInfo *types.ICEConnectionInfo)
+	OnTrack(track *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver)
+	OnDataMessage(kind livekit.DataPacket_Kind, data []byte)
+	OnDataMessageUnlabeled(data []byte)
+	OnDataSendError(err error)
+	OnOffer(sd webrtc.SessionDescription) error
+	OnAnswer(sd webrtc.SessionDescription) error
+	OnNegotiationStateChanged(state NegotiationState)
+	OnNegotiationFailed()
+	OnStreamStateChange(update *streamallocator.StreamStateUpdate) error
 }
 
-// UnimplementedHandler 未实现 Handler
 type UnimplementedHandler struct{}
 
-// OnICECandidate 处理 ICE 候选者
 func (h UnimplementedHandler) OnICECandidate(c *webrtc.ICECandidate, target livekit.SignalTarget) error {
 	return ErrNoICECandidateHandler
 }
@@ -59,7 +58,8 @@ func (h UnimplementedHandler) OnInitialConnected()                              
 func (h UnimplementedHandler) OnFullyEstablished()                                                {}
 func (h UnimplementedHandler) OnFailed(isShortLived bool)                                         {}
 func (h UnimplementedHandler) OnTrack(track *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {}
-func (h UnimplementedHandler) OnDataPacket(kind livekit.DataPacket_Kind, data []byte)             {}
+func (h UnimplementedHandler) OnDataMessage(kind livekit.DataPacket_Kind, data []byte)            {}
+func (h UnimplementedHandler) OnDataMessageUnlabeled(data []byte)                                 {}
 func (h UnimplementedHandler) OnDataSendError(err error)                                          {}
 func (h UnimplementedHandler) OnOffer(sd webrtc.SessionDescription) error {
 	return ErrNoOfferHandler

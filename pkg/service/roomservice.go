@@ -68,14 +68,8 @@ func NewRoomService(
 	return
 }
 
-// CreateRoom 创建房间的Twirp方法的实现
-// 创建房间请求，包括房间名称、节点ID、Egress配置等
-// 如果请求中包含Egress配置，则需要确保EgressLauncher已连接
-// 如果房间名称长度超过限制，则返回错误
-// 选择一个节点来处理房间请求
-// 调用路由的CreateRoom方法创建房间
 func (s *RoomService) CreateRoom(ctx context.Context, req *livekit.CreateRoomRequest) (*livekit.Room, error) {
-	redactedReq := redactCreateRoomRequest(req) // 重写创建房间请求 修改配置而以，无需ctx介入
+	redactedReq := redactCreateRoomRequest(req)
 	RecordRequest(ctx, redactedReq)
 
 	AppendLogFields(ctx, "room", req.Name, "request", logger.Proto(redactedReq))
@@ -139,7 +133,7 @@ func (s *RoomService) DeleteRoom(ctx context.Context, req *livekit.DeleteRoomReq
 	}
 
 	// ensure at least one node is available to handle the request
-	_, err = s.router.CreateRoom(ctx, &livekit.CreateRoomRequest{Name: req.Room})
+	room, err := s.router.CreateRoom(ctx, &livekit.CreateRoomRequest{Name: req.Room})
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +145,7 @@ func (s *RoomService) DeleteRoom(ctx context.Context, req *livekit.DeleteRoomReq
 
 	err = s.roomStore.DeleteRoom(ctx, livekit.RoomName(req.Room))
 	res := &livekit.DeleteRoomResponse{}
-	RecordResponse(ctx, res)
+	RecordResponse(ctx, room)
 	return res, err
 }
 
@@ -244,6 +238,15 @@ func (s *RoomService) UpdateParticipant(ctx context.Context, req *livekit.Update
 		return nil, twirpAuthError(err)
 	}
 
+	if os, ok := s.roomStore.(OSSServiceStore); ok {
+		found, err := os.HasParticipant(ctx, livekit.RoomName(req.Room), livekit.ParticipantIdentity(req.Identity))
+		if err != nil {
+			return nil, err
+		} else if !found {
+			return nil, ErrParticipantNotFound
+		}
+	}
+
 	res, err := s.participantClient.UpdateParticipant(ctx, s.topicFormatter.ParticipantTopic(ctx, livekit.RoomName(req.Room), livekit.ParticipantIdentity(req.Identity)), req)
 	RecordResponse(ctx, res)
 	return res, err
@@ -313,9 +316,24 @@ func (s *RoomService) UpdateRoomMetadata(ctx context.Context, req *livekit.Updat
 	return room, nil
 }
 
-// redactCreateRoomRequest 重写创建房间请求
-// 如果请求中没有Egress配置且没有元数据，则不需要重写
-// 否则，克隆请求并重写Egress配置和元数据
+func (s *RoomService) ForwardParticipant(ctx context.Context, req *livekit.ForwardParticipantRequest) (*livekit.ForwardParticipantResponse, error) {
+	RecordRequest(ctx, req)
+
+	roomName := livekit.RoomName(req.Room)
+	AppendLogFields(ctx, "room", roomName, "participant", req.Identity)
+	if err := EnsureAdminPermission(ctx, roomName); err != nil {
+		return nil, twirpAuthError(err)
+	}
+
+	if req.Room == req.DestinationRoom {
+		return nil, twirp.InvalidArgumentError(ErrForwardToSameRoom.Error(), "")
+	}
+
+	res, err := s.participantClient.ForwardParticipant(ctx, s.topicFormatter.ParticipantTopic(ctx, livekit.RoomName(req.Room), livekit.ParticipantIdentity(req.Identity)), req)
+	RecordResponse(ctx, res)
+	return res, err
+}
+
 func redactCreateRoomRequest(req *livekit.CreateRoomRequest) *livekit.CreateRoomRequest {
 	if req.Egress == nil && req.Metadata == "" {
 		// nothing to redact
@@ -326,15 +344,12 @@ func redactCreateRoomRequest(req *livekit.CreateRoomRequest) *livekit.CreateRoom
 
 	if clone.Egress != nil {
 		if clone.Egress.Room != nil {
-			// 重写Egress的Room配置
 			egress.RedactEncodedOutputs(clone.Egress.Room)
 		}
 		if clone.Egress.Participant != nil {
-			// 重写Egress的Participant配置
 			egress.RedactAutoEncodedOutput(clone.Egress.Participant)
 		}
 		if clone.Egress.Tracks != nil {
-			// 重写Egress的Tracks配置
 			egress.RedactUpload(clone.Egress.Tracks)
 		}
 	}

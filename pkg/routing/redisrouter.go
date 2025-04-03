@@ -33,11 +33,6 @@ import (
 )
 
 const (
-	// expire participant mappings after a day
-	participantMappingTTL = 24 * time.Hour  // 参与者映射过期时间
-	statsUpdateInterval   = 2 * time.Second // 统计更新间隔
-	statsMaxDelaySeconds  = float64(30)     // 统计最大延迟秒数
-
 	// hash of node_id => Node proto
 	NodesKey = "nodes"
 
@@ -50,18 +45,15 @@ var _ Router = (*RedisRouter)(nil)
 // RedisRouter uses Redis pub/sub to route signaling messages across different nodes
 // It relies on the RTC node to be the primary driver of the participant connection.
 // Because
-// RedisRouter 使用 Redis 发布/订阅来跨不同节点路由信令消息
-// 它依赖于 RTC 节点成为参与者连接的主要驱动程序。
-// 因为
 type RedisRouter struct {
 	*LocalRouter
 
-	rc        redis.UniversalClient // redis客户端
-	kps       rpc.KeepalivePubSub   // 保持活跃的发布订阅
-	ctx       context.Context       // 上下文
-	isStarted atomic.Bool           // 是否启动
+	rc        redis.UniversalClient
+	kps       rpc.KeepalivePubSub
+	ctx       context.Context
+	isStarted atomic.Bool
 
-	cancel func() // 取消函数
+	cancel func()
 }
 
 func NewRedisRouter(lr *LocalRouter, rc redis.UniversalClient, kps rpc.KeepalivePubSub) *RedisRouter {
@@ -74,19 +66,8 @@ func NewRedisRouter(lr *LocalRouter, rc redis.UniversalClient, kps rpc.Keepalive
 	return rr
 }
 
-// 注册节点
-// 会定时更新节点状态，类似心跳的机制
 func (r *RedisRouter) RegisterNode() error {
-	// data, err := proto.Marshal(r.currentNode.Clone())
-	// if err != nil {
-	// 	return err
-	// }
-	// nd := r.currentNode.Clone()
-	// buf, _ := json.MarshalIndent(nd, "", "  ")
-	// fmt.Println("RegisterNode currentNode:", string(buf))
-
-	// 直接转换成proto的[]byte，减少一次克隆
-	data, err := r.currentNode.ToProtoBytes()
+	data, err := proto.Marshal(r.currentNode.Clone())
 	if err != nil {
 		return err
 	}
@@ -146,11 +127,11 @@ func (r *RedisRouter) GetNode(nodeID livekit.NodeID) (*livekit.Node, error) {
 	} else if err != nil {
 		return nil, err
 	}
-	node := &livekit.Node{}
-	if err = proto.Unmarshal([]byte(data), node); err != nil {
+	n := livekit.Node{}
+	if err = proto.Unmarshal([]byte(data), &n); err != nil {
 		return nil, err
 	}
-	return node, nil
+	return &n, nil
 }
 
 func (r *RedisRouter) ListNodes() ([]*livekit.Node, error) {
@@ -160,11 +141,11 @@ func (r *RedisRouter) ListNodes() ([]*livekit.Node, error) {
 	}
 	nodes := make([]*livekit.Node, 0, len(items))
 	for _, item := range items {
-		node := &livekit.Node{}
-		if err := proto.Unmarshal([]byte(item), node); err != nil {
+		n := livekit.Node{}
+		if err := proto.Unmarshal([]byte(item), &n); err != nil {
 			return nil, err
 		}
-		nodes = append(nodes, node)
+		nodes = append(nodes, &n)
 	}
 	return nodes, nil
 }
@@ -179,15 +160,12 @@ func (r *RedisRouter) CreateRoom(ctx context.Context, req *livekit.CreateRoomReq
 }
 
 // StartParticipantSignal signal connection sets up paths to the RTC node, and starts to route messages to that message queue
-// 信令连接设置到 RTC 节点的路径，并开始将消息路由到该消息队列
 func (r *RedisRouter) StartParticipantSignal(ctx context.Context, roomName livekit.RoomName, pi ParticipantInit) (res StartParticipantSignalResults, err error) {
-	// 根据房间名获取 RTC 节点
 	rtcNode, err := r.GetNodeForRoom(ctx, roomName)
 	if err != nil {
 		return
 	}
 
-	// 开始参与者信令
 	return r.StartParticipantSignalWithNodeID(ctx, roomName, pi, livekit.NodeID(rtcNode.Id))
 }
 
@@ -226,15 +204,13 @@ func (r *RedisRouter) statsWorker() {
 	for r.ctx.Err() == nil {
 		// update periodically
 		select {
-		case <-time.After(statsUpdateInterval):
-			// 发布心跳(秒)
+		case <-time.After(r.nodeStatsConfig.StatsUpdateInterval):
 			r.kps.PublishPing(r.ctx, r.currentNode.NodeID(), &rpc.KeepalivePing{Timestamp: time.Now().Unix()})
 
-			// 检查延迟
 			delaySeconds := r.currentNode.SecondsSinceNodeStatsUpdate()
-			if delaySeconds > statsMaxDelaySeconds {
+			if delaySeconds > r.nodeStatsConfig.StatsMaxDelay.Seconds() {
 				if !goroutineDumped {
-					goroutineDumped = true // 设置为 true 在没有恢复之前不会重复打印
+					goroutineDumped = true
 					buf := bytes.NewBuffer(nil)
 					_ = pprof.Lookup("goroutine").WriteTo(buf, 2)
 					logger.Errorw("status update delayed, possible deadlock", nil,
@@ -259,23 +235,16 @@ func (r *RedisRouter) keepaliveWorker(startedChan chan error) {
 	close(startedChan)
 
 	for ping := range pings.Channel() {
-		// 打印订阅的消息
-		// fmt.Println("keepaliveWorker SubscribePing==================", ping)
-
-		// 检查心跳是否过期
-		if time.Since(time.Unix(ping.Timestamp, 0)) > statsUpdateInterval {
+		if time.Since(time.Unix(ping.Timestamp, 0)) > r.nodeStatsConfig.StatsUpdateInterval {
 			logger.Infow("keep alive too old, skipping", "timestamp", ping.Timestamp)
 			continue
 		}
 
-		// 更新节点统计信息
 		if !r.currentNode.UpdateNodeStats() {
 			continue
 		}
 
-		// TODO: check stats against config.Limit values // 检查统计信息是否符合配置的限制值
-
-		// 注册节点
+		// TODO: check stats against config.Limit values
 		if err := r.RegisterNode(); err != nil {
 			logger.Errorw("could not update node", err)
 		}

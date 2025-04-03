@@ -16,41 +16,43 @@ package routing
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"go.uber.org/atomic"
 
+	"github.com/livekit/livekit-server/pkg/config"
 	"github.com/livekit/protocol/livekit"
 	"github.com/livekit/protocol/logger"
 )
 
-// 编译时类型检查 确保 LocalRouter 实现了 Router 接口
 var _ Router = (*LocalRouter)(nil)
 
 // a router of messages on the same node, basic implementation for local testing
-// 在同一节点上进行消息路由的本地路由器，基本实现用于本地测试
 type LocalRouter struct {
-	// lock sync.RWMutex // 读写锁，没有使用，暂注释了
-	currentNode       LocalNode         // 当前节点
-	signalClient      SignalClient      // 信令客户端
-	roomManagerClient RoomManagerClient // 房间管理客户端
+	currentNode       LocalNode
+	signalClient      SignalClient
+	roomManagerClient RoomManagerClient
+	nodeStatsConfig   config.NodeStatsConfig
 
-	// channels for each participant // 每个参与者的请求通道
-	requestChannels  map[string]*MessageChannel // 每个参与者的请求通道
-	responseChannels map[string]*MessageChannel // 每个参与者的响应通道
-
-	isStarted atomic.Bool // 启动标识
+	lock sync.RWMutex
+	// channels for each participant
+	requestChannels  map[string]*MessageChannel
+	responseChannels map[string]*MessageChannel
+	isStarted        atomic.Bool
 }
 
 func NewLocalRouter(
 	currentNode LocalNode,
 	signalClient SignalClient,
 	roomManagerClient RoomManagerClient,
+	nodeStatsConfig config.NodeStatsConfig,
 ) *LocalRouter {
 	return &LocalRouter{
 		currentNode:       currentNode,
 		signalClient:      signalClient,
 		roomManagerClient: roomManagerClient,
+		nodeStatsConfig:   nodeStatsConfig,
 		requestChannels:   make(map[string]*MessageChannel),
 		responseChannels:  make(map[string]*MessageChannel),
 	}
@@ -60,27 +62,22 @@ func (r *LocalRouter) GetNodeForRoom(_ context.Context, _ livekit.RoomName) (*li
 	return r.currentNode.Clone(), nil
 }
 
-// 设置节点用于房间 本地模式不用具体实现
 func (r *LocalRouter) SetNodeForRoom(_ context.Context, _ livekit.RoomName, _ livekit.NodeID) error {
 	return nil
 }
 
-// 清除房间状态 本地模式不用具体实现
 func (r *LocalRouter) ClearRoomState(_ context.Context, _ livekit.RoomName) error {
 	return nil
 }
 
-// 注册节点 本地模式不用具体实现
 func (r *LocalRouter) RegisterNode() error {
 	return nil
 }
 
-// 注销节点 本地模式不用具体实现
 func (r *LocalRouter) UnregisterNode() error {
 	return nil
 }
 
-// 移除死节点 本地模式不用具体实现
 func (r *LocalRouter) RemoveDeadNodes() error {
 	return nil
 }
@@ -92,7 +89,6 @@ func (r *LocalRouter) GetNode(nodeID livekit.NodeID) (*livekit.Node, error) {
 	return nil, ErrNotFound
 }
 
-// 列出所有节点, 本地模式下只有一个节点
 func (r *LocalRouter) ListNodes() ([]*livekit.Node, error) {
 	return []*livekit.Node{
 		r.currentNode.Clone(),
@@ -139,7 +135,6 @@ func (r *LocalRouter) Start() error {
 	return nil
 }
 
-// 排空
 func (r *LocalRouter) Drain() {
 	r.currentNode.SetState(livekit.NodeState_SHUTTING_DOWN)
 }
@@ -155,8 +150,7 @@ func (r *LocalRouter) statsWorker() {
 		if !r.isStarted.Load() {
 			return
 		}
-		// update every 10 seconds
-		<-time.After(statsUpdateInterval)
+		<-time.After(r.nodeStatsConfig.StatsUpdateInterval)
 		r.currentNode.UpdateNodeStats()
 	}
 }

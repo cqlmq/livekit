@@ -67,7 +67,12 @@ func LimitsReached(limitConfig config.LimitConfig, nodeStats *livekit.NodeStats)
 	if limitConfig.NumTracks > 0 && limitConfig.NumTracks <= nodeStats.NumTracksIn+nodeStats.NumTracksOut {
 		return true
 	}
-	if limitConfig.BytesPerSec > 0 && limitConfig.BytesPerSec <= nodeStats.BytesInPerSec+nodeStats.BytesOutPerSec {
+
+	rate := &livekit.NodeStatsRate{}
+	if len(nodeStats.Rates) > 0 {
+		rate = nodeStats.Rates[0]
+	}
+	if limitConfig.BytesPerSec > 0 && limitConfig.BytesPerSec <= rate.BytesIn+rate.BytesOut {
 		return true
 	}
 
@@ -119,7 +124,16 @@ func SelectSortedNode(nodes []*livekit.Node, sortBy string) (*livekit.Node, erro
 	case "bytespersec":
 		// 根据流量选择
 		sort.Slice(nodes, func(i, j int) bool {
-			return nodes[i].Stats.BytesInPerSec+nodes[i].Stats.BytesOutPerSec < nodes[j].Stats.BytesInPerSec+nodes[j].Stats.BytesOutPerSec
+			ratei := &livekit.NodeStatsRate{}
+			if len(nodes[i].Stats.Rates) > 0 {
+				ratei = nodes[i].Stats.Rates[0]
+			}
+
+			ratej := &livekit.NodeStatsRate{}
+			if len(nodes[j].Stats.Rates) > 0 {
+				ratej = nodes[j].Stats.Rates[0]
+			}
+			return ratei.BytesIn+ratei.BytesOut < ratej.BytesIn+ratej.BytesOut
 		})
 		return nodes[0], nil
 	default:

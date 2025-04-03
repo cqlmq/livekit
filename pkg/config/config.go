@@ -31,12 +31,14 @@ import (
 	"github.com/livekit/livekit-server/pkg/sfu/bwe/remotebwe"
 	"github.com/livekit/livekit-server/pkg/sfu/bwe/sendsidebwe"
 	"github.com/livekit/livekit-server/pkg/sfu/mime"
+	"github.com/livekit/livekit-server/pkg/sfu/pacer"
 	"github.com/livekit/livekit-server/pkg/sfu/streamallocator"
 	"github.com/livekit/mediatransportutil/pkg/rtcconfig"
 	"github.com/livekit/protocol/livekit"
 	"github.com/livekit/protocol/logger"
 	redisLiveKit "github.com/livekit/protocol/redis"
 	"github.com/livekit/protocol/rpc"
+	"github.com/livekit/protocol/webhook"
 )
 
 const (
@@ -48,12 +50,10 @@ var (
 	ErrKeysNotSet                 = errors.New("one of key-file or keys must be provided")
 )
 
-// Config 定义了 LiveKit 服务器的所有配置选项
-// Config represents all configuration options for the LiveKit server
 type Config struct {
 	Port          uint32   `yaml:"port,omitempty"`
 	BindAddresses []string `yaml:"bind_addresses,omitempty"`
-	// PrometheusPort is deprecated 请使用 Prometheus.Port 代替
+	// PrometheusPort is deprecated
 	PrometheusPort uint32                   `yaml:"prometheus_port,omitempty"`
 	Prometheus     PrometheusConfig         `yaml:"prometheus,omitempty"`
 	RTC            RTCConfig                `yaml:"rtc,omitempty"`
@@ -64,7 +64,7 @@ type Config struct {
 	TURN           TURNConfig               `yaml:"turn,omitempty"`
 	Ingress        IngressConfig            `yaml:"ingress,omitempty"`
 	SIP            SIPConfig                `yaml:"sip,omitempty"`
-	WebHook        WebHookConfig            `yaml:"webhook,omitempty"`
+	WebHook        webhook.WebHookConfig    `yaml:"webhook,omitempty"`
 	NodeSelector   NodeSelectorConfig       `yaml:"node_selector,omitempty"`
 	KeyFile        string                   `yaml:"key_file,omitempty"`
 	Keys           map[string]string        `yaml:"keys,omitempty"`
@@ -79,10 +79,10 @@ type Config struct {
 	Development bool `yaml:"development,omitempty"`
 
 	Metric metric.MetricConfig `yaml:"metric,omitempty"`
+
+	NodeStats NodeStatsConfig `yaml:"node_stats,omitempty"`
 }
 
-// RTCConfig 定义了 WebRTC 相关的配置
-// RTCConfig defines WebRTC related configuration
 type RTCConfig struct {
 	rtcconfig.RTCConfig `yaml:",inline"`
 
@@ -101,7 +101,6 @@ type RTCConfig struct {
 	// Throttle periods for pli/fir rtcp packets
 	PLIThrottle sfu.PLIThrottleConfig `yaml:"pli_throttle,omitempty"`
 
-	// Congestion control configuration
 	CongestionControl CongestionControlConfig `yaml:"congestion_control,omitempty"`
 
 	// allow TCP and TURN/TLS fallback
@@ -134,8 +133,6 @@ type TURNServer struct {
 	Credential string `yaml:"credential,omitempty"`
 }
 
-// CongestionControlConfig 定义了拥塞控制配置
-// CongestionControlConfig defines congestion control configuration
 type CongestionControlConfig struct {
 	Enabled    bool `yaml:"enabled,omitempty"`
 	AllowPause bool `yaml:"allow_pause,omitempty"`
@@ -146,8 +143,9 @@ type CongestionControlConfig struct {
 
 	UseSendSideBWEInterceptor bool `yaml:"use_send_side_bwe_interceptor,omitempty"`
 
-	UseSendSideBWE bool                          `yaml:"use_send_side_bwe,omitempty"`
-	SendSideBWE    sendsidebwe.SendSideBWEConfig `yaml:"send_side_bwe,omitempty"`
+	UseSendSideBWE   bool                          `yaml:"use_send_side_bwe,omitempty"`
+	SendSideBWEPacer string                        `yaml:"send_side_bwe_pacer,omitempty"`
+	SendSideBWE      sendsidebwe.SendSideBWEConfig `yaml:"send_side_bwe,omitempty"`
 }
 
 type PlayoutDelayConfig struct {
@@ -159,11 +157,12 @@ type PlayoutDelayConfig struct {
 type VideoConfig struct {
 	DynacastPauseDelay   time.Duration                  `yaml:"dynacast_pause_delay,omitempty"`
 	StreamTrackerManager sfu.StreamTrackerManagerConfig `yaml:"stream_tracker_manager,omitempty"`
+
+	CodecRegressionThreshold int `yaml:"codec_regression_threshold,omitempty"`
 }
 
 type RoomConfig struct {
-	// 是否允许自动创建房间
-	// Enable automatic room creation
+	// enable rooms to be automatically created
 	AutoCreate         bool               `yaml:"auto_create,omitempty"`
 	EnabledCodecs      []CodecSpec        `yaml:"enabled_codecs,omitempty"`
 	MaxParticipants    uint32             `yaml:"max_participants,omitempty"`
@@ -189,15 +188,11 @@ type CodecSpec struct {
 	FmtpLine string `yaml:"fmtp_line,omitempty"`
 }
 
-// LoggingConfig 定义了日志配置
-// LoggingConfig defines logging configuration
 type LoggingConfig struct {
 	logger.Config `yaml:",inline"`
 	PionLevel     string `yaml:"pion_level,omitempty"`
 }
 
-// TURNConfig 定义了 TURN 服务器配置
-// TURNConfig defines TURN server configuration
 type TURNConfig struct {
 	Enabled             bool   `yaml:"enabled,omitempty"`
 	Domain              string `yaml:"domain,omitempty"`
@@ -210,12 +205,6 @@ type TURNConfig struct {
 	ExternalTLS         bool   `yaml:"external_tls,omitempty"`
 }
 
-type WebHookConfig struct {
-	URLs []string `yaml:"urls,omitempty"`
-	// key to use for webhook
-	APIKey string `yaml:"api_key,omitempty"`
-}
-
 type NodeSelectorConfig struct {
 	Kind         string         `yaml:"kind,omitempty"`
 	SortBy       string         `yaml:"sort_by,omitempty"`
@@ -224,13 +213,12 @@ type NodeSelectorConfig struct {
 	Regions      []RegionConfig `yaml:"regions,omitempty"`
 }
 
-// SignalRelayConfig 定义了信令配置
 type SignalRelayConfig struct {
-	RetryTimeout     time.Duration `yaml:"retry_timeout,omitempty"`      // 重试超时时间
-	MinRetryInterval time.Duration `yaml:"min_retry_interval,omitempty"` // 最小重试间隔时间
-	MaxRetryInterval time.Duration `yaml:"max_retry_interval,omitempty"` // 最大重试间隔时间
-	StreamBufferSize int           `yaml:"stream_buffer_size,omitempty"` // 流缓冲区大小
-	ConnectAttempts  int           `yaml:"connect_attempts,omitempty"`   // 连接尝试次数
+	RetryTimeout     time.Duration `yaml:"retry_timeout,omitempty"`
+	MinRetryInterval time.Duration `yaml:"min_retry_interval,omitempty"`
+	MaxRetryInterval time.Duration `yaml:"max_retry_interval,omitempty"`
+	StreamBufferSize int           `yaml:"stream_buffer_size,omitempty"`
+	ConnectAttempts  int           `yaml:"connect_attempts,omitempty"`
 }
 
 // RegionConfig lists available regions and their latitude/longitude, so the selector would prefer
@@ -241,41 +229,31 @@ type RegionConfig struct {
 	Lon  float64 `yaml:"lon,omitempty"`
 }
 
-// LimitConfig 定义了限制配置
-// LimitConfig defines limit configuration
 type LimitConfig struct {
-	NumTracks              int32   `yaml:"num_tracks,omitempty"`               // 最大允许的轨道数量
-	BytesPerSec            float32 `yaml:"bytes_per_sec,omitempty"`            // 每秒允许的最大字节数
-	SubscriptionLimitVideo int32   `yaml:"subscription_limit_video,omitempty"` // 最大允许的视频订阅数量
-	SubscriptionLimitAudio int32   `yaml:"subscription_limit_audio,omitempty"` // 最大允许的音频订阅数量
-	MaxMetadataSize        uint32  `yaml:"max_metadata_size,omitempty"`        // 最大允许的元数据大小
+	NumTracks              int32   `yaml:"num_tracks,omitempty"`
+	BytesPerSec            float32 `yaml:"bytes_per_sec,omitempty"`
+	SubscriptionLimitVideo int32   `yaml:"subscription_limit_video,omitempty"`
+	SubscriptionLimitAudio int32   `yaml:"subscription_limit_audio,omitempty"`
+	MaxMetadataSize        uint32  `yaml:"max_metadata_size,omitempty"`
 	// total size of all attributes on a participant
-	MaxAttributesSize            uint32 `yaml:"max_attributes_size,omitempty"`             // 最大允许的属性大小
-	MaxRoomNameLength            int    `yaml:"max_room_name_length,omitempty"`            // 最大允许的房间名称长度
-	MaxParticipantIdentityLength int    `yaml:"max_participant_identity_length,omitempty"` // 最大允许的参与者标识长度
-	MaxParticipantNameLength     int    `yaml:"max_participant_name_length,omitempty"`     // 最大允许的参与者名称长度
+	MaxAttributesSize            uint32 `yaml:"max_attributes_size,omitempty"`
+	MaxRoomNameLength            int    `yaml:"max_room_name_length,omitempty"`
+	MaxParticipantIdentityLength int    `yaml:"max_participant_identity_length,omitempty"`
+	MaxParticipantNameLength     int    `yaml:"max_participant_name_length,omitempty"`
 }
 
-// CheckRoomNameLength 检查房间名称长度是否符合限制
-// CheckRoomNameLength checks if the room name length is within the limit
 func (l LimitConfig) CheckRoomNameLength(name string) bool {
 	return l.MaxRoomNameLength == 0 || len(name) <= l.MaxRoomNameLength
 }
 
-// CheckParticipantNameLength 检查参与者名称长度是否符合限制
-// CheckParticipantNameLength checks if the participant name length is within the limit
 func (l LimitConfig) CheckParticipantNameLength(name string) bool {
 	return l.MaxParticipantNameLength == 0 || len(name) <= l.MaxParticipantNameLength
 }
 
-// CheckMetadataSize 检查元数据大小是否符合限制
-// CheckMetadataSize checks if the metadata size is within the limit
 func (l LimitConfig) CheckMetadataSize(metadata string) bool {
 	return l.MaxMetadataSize == 0 || uint32(len(metadata)) <= l.MaxMetadataSize
 }
 
-// CheckAttributesSize 检查属性大小是否符合限制
-// CheckAttributesSize checks if the attributes size is within the limit
 func (l LimitConfig) CheckAttributesSize(attributes map[string]string) bool {
 	if l.MaxAttributesSize == 0 {
 		return true
@@ -288,47 +266,36 @@ func (l LimitConfig) CheckAttributesSize(attributes map[string]string) bool {
 	return uint32(total) <= l.MaxAttributesSize
 }
 
-// IngressConfig 定义了入口配置
-// IngressConfig defines ingress configuration
 type IngressConfig struct {
-	RTMPBaseURL string `yaml:"rtmp_base_url,omitempty"` // RTMP 基础 URL
-	WHIPBaseURL string `yaml:"whip_base_url,omitempty"` // WHIP 基础 URL
+	RTMPBaseURL string `yaml:"rtmp_base_url,omitempty"`
+	WHIPBaseURL string `yaml:"whip_base_url,omitempty"`
 }
 
 type SIPConfig struct{}
 
 type APIConfig struct {
 	// amount of time to wait for API to execute, default 2s
-	// 执行API请求的超时时间
 	ExecutionTimeout time.Duration `yaml:"execution_timeout,omitempty"`
 
 	// min amount of time to wait before checking for operation complete
-	// 检查API请求是否完成的间隔时间
 	CheckInterval time.Duration `yaml:"check_interval,omitempty"`
 
 	// max amount of time to wait before checking for operation complete
-	// 最大检查API请求是否完成的间隔时间
 	MaxCheckInterval time.Duration `yaml:"max_check_interval,omitempty"`
 }
 
-// PrometheusConfig 定义了 Prometheus 配置
-// PrometheusConfig defines Prometheus configuration
 type PrometheusConfig struct {
 	Port     uint32 `yaml:"port,omitempty"`
 	Username string `yaml:"username,omitempty"`
 	Password string `yaml:"password,omitempty"`
 }
 
-// ForwardStatsConfig 定义了转发统计配置
-// ForwardStatsConfig defines forward stats configuration
 type ForwardStatsConfig struct {
-	SummaryInterval time.Duration `yaml:"summary_interval,omitempty"` // 汇总间隔
-	ReportInterval  time.Duration `yaml:"report_interval,omitempty"`  // 报告间隔
-	ReportWindow    time.Duration `yaml:"report_window,omitempty"`    // 报告窗口
+	SummaryInterval time.Duration `yaml:"summary_interval,omitempty"`
+	ReportInterval  time.Duration `yaml:"report_interval,omitempty"`
+	ReportWindow    time.Duration `yaml:"report_window,omitempty"`
 }
 
-// DefaultAPIConfig 返回默认的 API 配置
-// DefaultAPIConfig returns default API configuration
 func DefaultAPIConfig() APIConfig {
 	return APIConfig{
 		ExecutionTimeout: 2 * time.Second,
@@ -337,94 +304,102 @@ func DefaultAPIConfig() APIConfig {
 	}
 }
 
-// DefaultConfig 返回默认的配置
-// DefaultConfig returns default configuration
-var DefaultConfig = Config{
-	Port: 7880, // 默认端口
-	RTC: RTCConfig{
-		RTCConfig: rtcconfig.RTCConfig{ // 默认RTC配置
-			UseExternalIP:     false,      // 是否使用外部IP
-			TCPPort:           7881,       // 默认TCP端口
-			ICEPortRangeStart: 0,          // 默认ICE端口范围开始
-			ICEPortRangeEnd:   0,          // 默认ICE端口范围结束
-			STUNServers:       []string{}, // 默认STUN服务器
-		},
-		PacketBufferSize:      500,                          // 默认包缓冲区大小
-		PacketBufferSizeVideo: 500,                          // 默认视频包缓冲区大小
-		PacketBufferSizeAudio: 200,                          // 默认音频包缓冲区大小
-		PLIThrottle:           sfu.DefaultPLIThrottleConfig, // 默认PLI节流配置
-		CongestionControl: CongestionControlConfig{ // 默认拥塞控制配置
-			Enabled:                   true,                                         // 默认启用拥塞控制
-			AllowPause:                false,                                        // 默认不允许暂停
-			StreamAllocator:           streamallocator.DefaultStreamAllocatorConfig, // 默认流分配器配置
-			RemoteBWE:                 remotebwe.DefaultRemoteBWEConfig,             // 默认远程BWE配置
-			UseSendSideBWEInterceptor: false,                                        // 默认不使用发送端BWE拦截器
-			UseSendSideBWE:            false,                                        // 默认不使用发送端BWE
-			SendSideBWE:               sendsidebwe.DefaultSendSideBWEConfig,         // 默认发送端BWE配置
-		},
-	},
-	Audio: sfu.DefaultAudioConfig, // 默认音频配置
-	Video: VideoConfig{ // 默认视频配置
-		DynacastPauseDelay:   5 * time.Second,                       // 默认动态广播暂停延迟
-		StreamTrackerManager: sfu.DefaultStreamTrackerManagerConfig, // 默认流跟踪管理器配置
-	},
-	Redis: redisLiveKit.RedisConfig{}, // 默认Redis配置
-	Room: RoomConfig{ // 默认房间配置
-		AutoCreate: true, // 默认自动创建房间
-		EnabledCodecs: []CodecSpec{
-			{Mime: mime.MimeTypeOpus.String()}, // 默认Opus编码
-			{Mime: mime.MimeTypeRED.String()},  // 默认RED编码
-			{Mime: mime.MimeTypeVP8.String()},  // 默认VP8编码
-			{Mime: mime.MimeTypeH264.String()}, // 默认H264编码
-			{Mime: mime.MimeTypeVP9.String()},  // 默认VP9编码
-			{Mime: mime.MimeTypeAV1.String()},  // 默认AV1编码
-			{Mime: mime.MimeTypeRTX.String()},  // 默认RTX编码
-		},
-		EmptyTimeout:       5 * 60,           // 默认空超时
-		DepartureTimeout:   20,               // 默认离开超时
-		CreateRoomEnabled:  true,             // 默认创建房间
-		CreateRoomTimeout:  10 * time.Second, // 默认创建房间超时
-		CreateRoomAttempts: 3,                // 默认创建房间尝试次数
-	},
-	Limit: LimitConfig{ // 默认限制配置
-		MaxMetadataSize:              64000, // 默认最大元数据大小
-		MaxAttributesSize:            64000, // 默认最大属性大小
-		MaxRoomNameLength:            256,   // 默认最大房间名称长度
-		MaxParticipantIdentityLength: 256,   // 默认最大参与者标识长度
-		MaxParticipantNameLength:     256,   // 默认最大参与者名称长度
-	},
-	Logging: LoggingConfig{ // 默认日志配置
-		PionLevel: "error", // 默认Pion日志级别
-	},
-	TURN: TURNConfig{ // 默认TURN配置
-		Enabled: false, // 默认禁用TURN
-	},
-	NodeSelector: NodeSelectorConfig{ // 默认节点选择器配置
-		Kind:         "any",    // 默认节点类型
-		SortBy:       "random", // 默认排序方式
-		SysloadLimit: 0.9,      // 默认系统负载限制
-		CPULoadLimit: 0.9,      // 默认CPU负载限制
-	},
-	SignalRelay: SignalRelayConfig{ // 默认信号中继配置
-		RetryTimeout:     7500 * time.Millisecond, // 默认重试超时 7.5秒
-		MinRetryInterval: 500 * time.Millisecond,  // 默认最小重试间隔 0.5秒
-		MaxRetryInterval: 4 * time.Second,         // 默认最大重试间隔 4秒
-		StreamBufferSize: 1000,                    // 默认流缓冲区大小 1000
-		ConnectAttempts:  3,                       // 默认连接尝试次数 3次
-	},
-	PSRPC:  rpc.DefaultPSRPCConfig,     // 默认PSRPC配置
-	Keys:   map[string]string{},        // 默认密钥配置
-	Metric: metric.DefaultMetricConfig, // 默认指标配置
+type NodeStatsConfig struct {
+	StatsUpdateInterval           time.Duration   `yaml:"stats_update_interval,omitempty"`
+	StatsRateMeasurementIntervals []time.Duration `yaml:"stats_rate_measurement_intervals,omitempty"`
+	StatsMaxDelay                 time.Duration   `yaml:"stats_max_delay,omitempty"`
 }
 
-// NewConfig 创建并初始化配置对象
-// NewConfig creates and initializes a configuration object
-// 从默认配置开始, 根据命令行参数和配置文件进行更新
-// 优先级：命令行参数 > 配置文件 > 默认配置
-// Priority: command line arguments > config file > default configuration
+var DefaultNodeStatsConfig = NodeStatsConfig{
+	StatsUpdateInterval:           2 * time.Second,
+	StatsRateMeasurementIntervals: []time.Duration{10 * time.Second},
+	StatsMaxDelay:                 30 * time.Second,
+}
+
+var DefaultConfig = Config{
+	Port: 7880,
+	RTC: RTCConfig{
+		RTCConfig: rtcconfig.RTCConfig{
+			UseExternalIP:     false,
+			TCPPort:           7881,
+			ICEPortRangeStart: 0,
+			ICEPortRangeEnd:   0,
+			STUNServers:       []string{},
+		},
+		PacketBufferSize:      500,
+		PacketBufferSizeVideo: 500,
+		PacketBufferSizeAudio: 200,
+		PLIThrottle:           sfu.DefaultPLIThrottleConfig,
+		CongestionControl: CongestionControlConfig{
+			Enabled:                   true,
+			AllowPause:                false,
+			StreamAllocator:           streamallocator.DefaultStreamAllocatorConfig,
+			RemoteBWE:                 remotebwe.DefaultRemoteBWEConfig,
+			UseSendSideBWEInterceptor: false,
+			UseSendSideBWE:            false,
+			SendSideBWEPacer:          string(pacer.PacerBehaviorNoQueue),
+			SendSideBWE:               sendsidebwe.DefaultSendSideBWEConfig,
+		},
+	},
+	Audio: sfu.DefaultAudioConfig,
+	Video: VideoConfig{
+		DynacastPauseDelay:       5 * time.Second,
+		StreamTrackerManager:     sfu.DefaultStreamTrackerManagerConfig,
+		CodecRegressionThreshold: 5,
+	},
+	Redis: redisLiveKit.RedisConfig{},
+	Room: RoomConfig{
+		AutoCreate: true,
+		EnabledCodecs: []CodecSpec{
+			{Mime: mime.MimeTypeOpus.String()},
+			{Mime: mime.MimeTypeRED.String()},
+			{Mime: mime.MimeTypeVP8.String()},
+			{Mime: mime.MimeTypeH264.String()},
+			{Mime: mime.MimeTypeVP9.String()},
+			{Mime: mime.MimeTypeAV1.String()},
+			{Mime: mime.MimeTypeRTX.String()},
+		},
+		EmptyTimeout:       5 * 60,
+		DepartureTimeout:   20,
+		CreateRoomEnabled:  true,
+		CreateRoomTimeout:  10 * time.Second,
+		CreateRoomAttempts: 3,
+	},
+	Limit: LimitConfig{
+		MaxMetadataSize:              64000,
+		MaxAttributesSize:            64000,
+		MaxRoomNameLength:            256,
+		MaxParticipantIdentityLength: 256,
+		MaxParticipantNameLength:     256,
+	},
+	Logging: LoggingConfig{
+		PionLevel: "error",
+	},
+	TURN: TURNConfig{
+		Enabled: false,
+	},
+	NodeSelector: NodeSelectorConfig{
+		Kind:         "any",
+		SortBy:       "random",
+		SysloadLimit: 0.9,
+		CPULoadLimit: 0.9,
+	},
+	SignalRelay: SignalRelayConfig{
+		RetryTimeout:     7500 * time.Millisecond,
+		MinRetryInterval: 500 * time.Millisecond,
+		MaxRetryInterval: 4 * time.Second,
+		StreamBufferSize: 1000,
+		ConnectAttempts:  3,
+	},
+	PSRPC:     rpc.DefaultPSRPCConfig,
+	Keys:      map[string]string{},
+	Metric:    metric.DefaultMetricConfig,
+	WebHook:   webhook.DefaultWebHookConfig,
+	NodeStats: DefaultNodeStatsConfig,
+}
+
 func NewConfig(confString string, strictMode bool, c *cli.Context, baseFlags []cli.Flag) (*Config, error) {
-	// 从默认配置开始，采用yaml序列化，然后反序列化，从而创建一个全新的配置对象
-	// Start with default configuration, marshal to yaml, then unmarshal to create a new configuration object
+	// start with defaults
 	marshalled, err := yaml.Marshal(&DefaultConfig)
 	if err != nil {
 		return nil, err
@@ -436,51 +411,25 @@ func NewConfig(confString string, strictMode bool, c *cli.Context, baseFlags []c
 		return nil, err
 	}
 
-	// 如果配置字符串不为空，则从配置字符串中解析配置
 	if confString != "" {
 		decoder := yaml.NewDecoder(strings.NewReader(confString))
-		decoder.KnownFields(strictMode) // 用于控制 YAML 解析器对未知字段的处理方式, 如果 strictMode 为 true, 则 YAML 解析器会拒绝未知字段
+		decoder.KnownFields(strictMode)
 		if err := decoder.Decode(&conf); err != nil {
 			return nil, fmt.Errorf("could not parse config: %v", err)
 		}
 	}
 
-	// 如果命令行参数不为空，则从命令行参数中更新配置
 	if c != nil {
 		if err := conf.updateFromCLI(c, baseFlags); err != nil {
 			return nil, err
 		}
 	}
 
-	// 如果日志级别不为空, 则使用日志级别
-	if conf.LogLevel != "" {
-		conf.Logging.Level = conf.LogLevel
-	}
-	// 如果日志级别为空, 并且开发模式为true, 则默认使用debug级别
-	if conf.Logging.Level == "" && conf.Development {
-		conf.Logging.Level = "debug"
-	}
-	// 如果pion日志级别不为空, 则使用pion日志级别
-	if conf.Logging.PionLevel != "" {
-		if conf.Logging.ComponentLevels == nil {
-			conf.Logging.ComponentLevels = map[string]string{}
-		}
-		conf.Logging.ComponentLevels["transport.pion"] = conf.Logging.PionLevel
-		conf.Logging.ComponentLevels["pion"] = conf.Logging.PionLevel
-	}
-	// 初始化日志
-	// add code here at 2025-03-09 cqlmq
-	logger.InitFromConfig(&conf.Logging.Config, "")
-
-	// 验证 RTC 配置
-	// 在 Validate 方法中，会根据 development 参数设置默认值， 比如可以获取到NodeIP
-	st := time.Now()
 	if err := conf.RTC.Validate(conf.Development); err != nil {
 		return nil, fmt.Errorf("could not validate RTC config: %v", err)
 	}
-	logger.Infow("conf.RTC.Validate", "nodeIP", conf.RTC.NodeIP, "time", time.Since(st))
 
-	// 扩展环境变量, 扩展 ~ 路径符号
+	// expand env vars in filenames
 	file, err := homedir.Expand(os.ExpandEnv(conf.KeyFile))
 	if err != nil {
 		return nil, err
@@ -490,8 +439,6 @@ func NewConfig(confString string, strictMode bool, c *cli.Context, baseFlags []c
 	// set defaults for Turn relay if none are set
 	if conf.TURN.RelayPortRangeStart == 0 || conf.TURN.RelayPortRangeEnd == 0 {
 		// to make it easier to run in dev mode/docker, default to two ports
-		// 如果开发模式为true, 则默认使用30000-30002端口 便于监测
-		// 如果开发模式为false, 则默认使用30000-40000端口 适合生产环境
 		if conf.Development {
 			conf.TURN.RelayPortRangeStart = 30000
 			conf.TURN.RelayPortRangeEnd = 30002
@@ -501,16 +448,27 @@ func NewConfig(confString string, strictMode bool, c *cli.Context, baseFlags []c
 		}
 	}
 
+	if conf.LogLevel != "" {
+		conf.Logging.Level = conf.LogLevel
+	}
+	if conf.Logging.Level == "" && conf.Development {
+		conf.Logging.Level = "debug"
+	}
+	if conf.Logging.PionLevel != "" {
+		if conf.Logging.ComponentLevels == nil {
+			conf.Logging.ComponentLevels = map[string]string{}
+		}
+		conf.Logging.ComponentLevels["transport.pion"] = conf.Logging.PionLevel
+		conf.Logging.ComponentLevels["pion"] = conf.Logging.PionLevel
+	}
+
 	// copy over legacy limits
-	// 如果房间最大元数据大小不为0, 则使用房间最大元数据大小
 	if conf.Room.MaxMetadataSize != 0 {
 		conf.Limit.MaxMetadataSize = conf.Room.MaxMetadataSize
 	}
-	// 如果房间最大参与者标识长度不为0, 则使用房间最大参与者标识长度
 	if conf.Room.MaxParticipantIdentityLength != 0 {
 		conf.Limit.MaxParticipantIdentityLength = conf.Room.MaxParticipantIdentityLength
 	}
-	// 如果房间最大房间名称长度不为0, 则使用房间最大房间名称长度
 	if conf.Room.MaxRoomNameLength != 0 {
 		conf.Limit.MaxRoomNameLength = conf.Room.MaxRoomNameLength
 	}
@@ -535,14 +493,6 @@ type configNode struct {
 	TagPrefix string
 }
 
-// ToCLIFlagNames 将配置转换为命令行参数名称
-// ToCLIFlagNames converts configuration to command line argument names
-// 将配置转换为命令行参数名称
-// 遍历配置的每个字段，获取yaml标签的名称，如果yaml标签的名称不为空，则将yaml标签的名称作为命令行参数的名称
-// 如果yaml标签的名称为空，则将字段名称作为命令行参数的名称
-// 如果yaml标签的名称为-，则跳过该字段
-// 如果yaml标签的名称为inline，则将字段名称作为命令行参数的名称
-// 跳过existingFlags中已经存在的命令行参数名称
 func (conf *Config) ToCLIFlagNames(existingFlags []cli.Flag) map[string]reflect.Value {
 	existingFlagNames := map[string]bool{}
 	for _, flag := range existingFlags {
@@ -560,7 +510,7 @@ func (conf *Config) ToCLIFlagNames(existingFlags []cli.Flag) map[string]reflect.
 			// inspect yaml tag from struct field to get path
 			field := currNode.TypeNode.Type().Field(i)
 			yamlTagArray := strings.SplitN(field.Tag.Get("yaml"), ",", 2)
-			yamlTag := yamlTagArray[0] // 获取yaml标签的名称
+			yamlTag := yamlTagArray[0]
 			isInline := false
 			if len(yamlTagArray) > 1 && yamlTagArray[1] == "inline" {
 				isInline = true
@@ -623,17 +573,13 @@ func (conf *Config) ValidateKeys() error {
 	if !conf.Development {
 		for key, secret := range conf.Keys {
 			if len(secret) < 32 {
-				err := fmt.Errorf("secret is too short, should be at least 32 characters for security apiKey: %s", key)
-				// logger.Warnw(err.Error(), nil)
-				return err
+				logger.Errorw("secret is too short, should be at least 32 characters for security", nil, "apiKey", key)
 			}
 		}
 	}
 	return nil
 }
 
-// GenerateCLIFlags 生成命令行参数
-// GenerateCLIFlags generates command line arguments
 func GenerateCLIFlags(existingFlags []cli.Flag, hidden bool) ([]cli.Flag, error) {
 	blankConfig := &Config{}
 	flags := make([]cli.Flag, 0)
@@ -722,20 +668,16 @@ func GenerateCLIFlags(existingFlags []cli.Flag, hidden bool) ([]cli.Flag, error)
 	return flags, nil
 }
 
-// updateFromCLI 从命令行参数中更新配置
-// updateFromCLI updates configuration from command line arguments
 func (conf *Config) updateFromCLI(c *cli.Context, baseFlags []cli.Flag) error {
 	generatedFlagNames := conf.ToCLIFlagNames(baseFlags)
 	for _, flag := range c.App.Flags {
-		flagName := flag.Names()[0] // 获取命令行参数的名称
+		flagName := flag.Names()[0]
 
-		// 如果命令行参数未设置，并且不是在单元测试中，则跳过
 		// the `c.App.Name != "test"` check is needed because `c.IsSet(...)` is always false in unit tests
 		if !c.IsSet(flagName) && c.App.Name != "test" {
 			continue
 		}
 
-		// 获取命令行参数的值
 		configValue, ok := generatedFlagNames[flagName]
 		if !ok {
 			continue
@@ -810,8 +752,6 @@ func (conf *Config) updateFromCLI(c *cli.Context, baseFlags []cli.Flag) error {
 	return nil
 }
 
-// unmarshalKeys 将密钥字符串反序列化为map[string]string
-// unmarshalKeys unmarshals the keys string into a map[string]string
 func (conf *Config) unmarshalKeys(keys string) error {
 	temp := make(map[string]interface{})
 	if err := yaml.Unmarshal([]byte(keys), temp); err != nil {
@@ -828,18 +768,11 @@ func (conf *Config) unmarshalKeys(keys string) error {
 	return nil
 }
 
-// LimitConfig 限制配置
-func (conf *Config) GetLimitConfig() LimitConfig {
-	return conf.Limit
-}
-
 // Note: only pass in logr.Logger with default depth
 func SetLogger(l logger.Logger) {
 	logger.SetLogger(l, "livekit")
 }
 
-// Deprecated: 在NewConfig中调用, 本方法已废弃
 func InitLoggerFromConfig(config *LoggingConfig) {
-	// delete code here at 2025-03-09 cqlmq
-	// logger.InitFromConfig(&config.Config, "livekit")
+	logger.InitFromConfig(&config.Config, "livekit")
 }

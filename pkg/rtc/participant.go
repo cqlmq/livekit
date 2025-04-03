@@ -108,62 +108,64 @@ func (p participantUpdateInfo) String() string {
 }
 
 // ---------------------------------------------------------------
-// 参与者参数
+
 type ParticipantParams struct {
-	Identity                       livekit.ParticipantIdentity                                                            // 参与者身份
-	Name                           livekit.ParticipantName                                                                // 参与者名称
-	SID                            livekit.ParticipantID                                                                  // 参与者ID
-	Config                         *WebRTCConfig                                                                          // WebRTC 配置
-	Sink                           routing.MessageSink                                                                    // 消息路由
-	AudioConfig                    sfu.AudioConfig                                                                        // 音频配置
-	VideoConfig                    config.VideoConfig                                                                     // 视频配置
-	LimitConfig                    config.LimitConfig                                                                     // 限制配置
-	ProtocolVersion                types.ProtocolVersion                                                                  // 协议版本
-	SessionStartTime               time.Time                                                                              // 会话开始时间
-	Telemetry                      telemetry.TelemetryService                                                             // 遥测服务
-	Trailer                        []byte                                                                                 // 尾部
-	PLIThrottleConfig              sfu.PLIThrottleConfig                                                                  // PLI 限流配置
-	CongestionControlConfig        config.CongestionControlConfig                                                         // 拥塞控制配置
-	PublishEnabledCodecs           []*livekit.Codec                                                                       // 发布启用的编码器
-	SubscribeEnabledCodecs         []*livekit.Codec                                                                       // 订阅启用的编码器
-	Logger                         logger.Logger                                                                          // 日志记录器
-	SimTracks                      map[uint32]SimulcastTrackInfo                                                          // 模拟轨道信息
-	Grants                         *auth.ClaimGrants                                                                      // 授权
-	InitialVersion                 uint32                                                                                 // 初始版本
-	ClientConf                     *livekit.ClientConfiguration                                                           // 客户端配置
-	ClientInfo                     ClientInfo                                                                             // 客户端信息
-	Region                         string                                                                                 // 区域
-	Migration                      bool                                                                                   // 迁移
-	Reconnect                      bool                                                                                   // 重连
-	AdaptiveStream                 bool                                                                                   // 自适应流
-	AllowTCPFallback               bool                                                                                   // 允许TCP回退
-	TCPFallbackRTTThreshold        int                                                                                    // TCP回退RTT阈值
-	AllowUDPUnstableFallback       bool                                                                                   // 允许UDP不稳定回退
-	TURNSEnabled                   bool                                                                                   // TURNS启用
-	GetParticipantInfo             func(pID livekit.ParticipantID) *livekit.ParticipantInfo                               // 获取参与者信息
-	GetRegionSettings              func(ip string) *livekit.RegionSettings                                                // 获取区域设置
-	GetSubscriberForwarderState    func(p types.LocalParticipant) (map[livekit.TrackID]*livekit.RTPForwarderState, error) // 获取订阅者转发器状态
-	DisableSupervisor              bool                                                                                   // 禁用监督器
-	ReconnectOnPublicationError    bool                                                                                   // 在发布错误时重连
-	ReconnectOnSubscriptionError   bool                                                                                   // 在订阅错误时重连
-	ReconnectOnDataChannelError    bool                                                                                   // 在数据通道错误时重连
-	VersionGenerator               utils.TimedVersionGenerator                                                            // 版本生成器
-	TrackResolver                  types.MediaTrackResolver                                                               // 媒体轨道解析器
-	DisableDynacast                bool                                                                                   // 禁用动态广播
-	SubscriberAllowPause           bool                                                                                   // 订阅者允许暂停
-	SubscriptionLimitAudio         int32                                                                                  // 订阅限制音频
-	SubscriptionLimitVideo         int32                                                                                  // 订阅限制视频
-	PlayoutDelay                   *livekit.PlayoutDelay                                                                  // 播放延迟
-	SyncStreams                    bool                                                                                   // 同步流
-	ForwardStats                   *sfu.ForwardStats                                                                      // 转发统计
-	DisableSenderReportPassThrough bool                                                                                   // 禁用发送者报告传递
-	MetricConfig                   metric.MetricConfig                                                                    // 指标配置
-	UseOneShotSignallingMode       bool                                                                                   // 使用一次性信令模式
-	EnableMetrics                  bool                                                                                   // 启用指标
-	DataChannelMaxBufferedAmount   uint64                                                                                 // 数据通道最大缓冲量
-	DatachannelSlowThreshold       int                                                                                    // 数据通道慢阈值
-	FireOnTrackBySdp               bool                                                                                   // 在SDP轨道上触发
-	DisableCodecRegression         bool                                                                                   // 禁用编码器回归
+	Identity                livekit.ParticipantIdentity
+	Name                    livekit.ParticipantName
+	SID                     livekit.ParticipantID
+	Config                  *WebRTCConfig
+	Sink                    routing.MessageSink
+	AudioConfig             sfu.AudioConfig
+	VideoConfig             config.VideoConfig
+	LimitConfig             config.LimitConfig
+	ProtocolVersion         types.ProtocolVersion
+	SessionStartTime        time.Time
+	Telemetry               telemetry.TelemetryService
+	Trailer                 []byte
+	PLIThrottleConfig       sfu.PLIThrottleConfig
+	CongestionControlConfig config.CongestionControlConfig
+	// codecs that are enabled for this room
+	PublishEnabledCodecs           []*livekit.Codec
+	SubscribeEnabledCodecs         []*livekit.Codec
+	Logger                         logger.Logger
+	SimTracks                      map[uint32]SimulcastTrackInfo
+	Grants                         *auth.ClaimGrants
+	InitialVersion                 uint32
+	ClientConf                     *livekit.ClientConfiguration
+	ClientInfo                     ClientInfo
+	Region                         string
+	Migration                      bool
+	Reconnect                      bool
+	AdaptiveStream                 bool
+	AllowTCPFallback               bool
+	TCPFallbackRTTThreshold        int
+	AllowUDPUnstableFallback       bool
+	TURNSEnabled                   bool
+	GetParticipantInfo             func(pID livekit.ParticipantID) *livekit.ParticipantInfo
+	GetRegionSettings              func(ip string) *livekit.RegionSettings
+	GetSubscriberForwarderState    func(p types.LocalParticipant) (map[livekit.TrackID]*livekit.RTPForwarderState, error)
+	ShouldRegressCodec             func() bool
+	DisableSupervisor              bool
+	ReconnectOnPublicationError    bool
+	ReconnectOnSubscriptionError   bool
+	ReconnectOnDataChannelError    bool
+	VersionGenerator               utils.TimedVersionGenerator
+	TrackResolver                  types.MediaTrackResolver
+	DisableDynacast                bool
+	SubscriberAllowPause           bool
+	SubscriptionLimitAudio         int32
+	SubscriptionLimitVideo         int32
+	PlayoutDelay                   *livekit.PlayoutDelay
+	SyncStreams                    bool
+	ForwardStats                   *sfu.ForwardStats
+	DisableSenderReportPassThrough bool
+	MetricConfig                   metric.MetricConfig
+	UseOneShotSignallingMode       bool
+	EnableMetrics                  bool
+	DataChannelMaxBufferedAmount   uint64
+	DatachannelSlowThreshold       int
+	FireOnTrackBySdp               bool
+	DisableCodecRegression         bool
 }
 
 type ParticipantImpl struct {
@@ -241,6 +243,7 @@ type ParticipantImpl struct {
 	onMigrateStateChange func(p types.LocalParticipant, migrateState types.MigrateState)
 	onParticipantUpdate  func(types.LocalParticipant)
 	onDataPacket         func(types.LocalParticipant, livekit.DataPacket_Kind, *livekit.DataPacket)
+	onDataMessage        func(types.LocalParticipant, []byte)
 	onMetrics            func(types.Participant, *livekit.DataPacket)
 
 	migrateState atomic.Value // types.MigrateState
@@ -787,6 +790,18 @@ func (p *ParticipantImpl) getOnDataPacket() func(types.LocalParticipant, livekit
 	return p.onDataPacket
 }
 
+func (p *ParticipantImpl) OnDataMessage(callback func(types.LocalParticipant, []byte)) {
+	p.lock.Lock()
+	p.onDataMessage = callback
+	p.lock.Unlock()
+}
+
+func (p *ParticipantImpl) getOnDataMessage() func(types.LocalParticipant, []byte) {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+	return p.onDataMessage
+}
+
 func (p *ParticipantImpl) OnMetrics(callback func(types.Participant, *livekit.DataPacket)) {
 	p.lock.Lock()
 	p.onMetrics = callback
@@ -974,7 +989,12 @@ func (p *ParticipantImpl) handleMigrateTracks() []*MediaTrack {
 // records track details and lets client know it's ok to proceed
 func (p *ParticipantImpl) AddTrack(req *livekit.AddTrackRequest) {
 	if !p.CanPublishSource(req.Source) {
-		p.pubLogger.Warnw("no permission to publish track", nil)
+		p.pubLogger.Warnw("no permission to publish track", nil, "trackID", req.Sid, "kind", req.Type)
+		return
+	}
+
+	if req.Type != livekit.TrackType_AUDIO && req.Type != livekit.TrackType_VIDEO {
+		p.pubLogger.Warnw("unsupported track type", nil, "trackID", req.Sid, "kind", req.Type)
 		return
 	}
 
@@ -1458,8 +1478,16 @@ func (h PublisherTransportHandler) OnInitialConnected() {
 	h.p.onPublisherInitialConnected()
 }
 
-func (h PublisherTransportHandler) OnDataPacket(kind livekit.DataPacket_Kind, data []byte) {
-	h.p.onDataMessage(kind, data)
+func (h PublisherTransportHandler) OnDataMessage(kind livekit.DataPacket_Kind, data []byte) {
+	h.p.onReceivedDataMessage(kind, data)
+}
+
+func (h PublisherTransportHandler) OnDataMessageUnlabeled(data []byte) {
+	h.p.onReceivedDataMessageUnlabeled(data)
+}
+
+func (h PublisherTransportHandler) OnDataSendError(err error) {
+	h.p.onDataSendError(err)
 }
 
 // ----------------------------------------------------------
@@ -1648,7 +1676,7 @@ func (p *ParticipantImpl) MetricsReporterBatchReady(mb *livekit.MetricsBatch) {
 		return
 	}
 
-	p.TransportManager.SendDataPacket(livekit.DataPacket_RELIABLE, dpData)
+	p.TransportManager.SendDataMessage(livekit.DataPacket_RELIABLE, dpData)
 }
 
 func (p *ParticipantImpl) setupMetrics() {
@@ -1828,7 +1856,7 @@ func (p *ParticipantImpl) handlePendingRemoteTracks() {
 	}
 }
 
-func (p *ParticipantImpl) onDataMessage(kind livekit.DataPacket_Kind, data []byte) {
+func (p *ParticipantImpl) onReceivedDataMessage(kind livekit.DataPacket_Kind, data []byte) {
 	if p.IsDisconnected() || !p.CanPublishData() {
 		return
 	}
@@ -1948,6 +1976,18 @@ func (p *ParticipantImpl) onDataMessage(kind livekit.DataPacket_Kind, data []byt
 		if onMetrics := p.getOnMetrics(); onMetrics != nil {
 			onMetrics(p, dp)
 		}
+	}
+}
+
+func (p *ParticipantImpl) onReceivedDataMessageUnlabeled(data []byte) {
+	if p.IsDisconnected() || !p.CanPublishData() {
+		return
+	}
+
+	p.dataChannelStats.AddBytes(uint64(len(data)), false)
+
+	if onDataMessage := p.getOnDataMessage(); onDataMessage != nil {
+		onDataMessage(p, data)
 	}
 }
 
@@ -2210,7 +2250,7 @@ func (p *ParticipantImpl) addPendingTrackLocked(req *livekit.AddTrackRequest) *l
 	}
 
 	backupCodecPolicy := req.BackupCodecPolicy
-	if backupCodecPolicy == livekit.BackupCodecPolicy_REGRESSION && p.params.DisableCodecRegression {
+	if backupCodecPolicy != livekit.BackupCodecPolicy_SIMULCAST && p.params.DisableCodecRegression {
 		backupCodecPolicy = livekit.BackupCodecPolicy_SIMULCAST
 	}
 
@@ -2351,37 +2391,35 @@ func (p *ParticipantImpl) setTrackMuted(trackID livekit.TrackID, muted bool) *li
 		p.supervisor.SetPublicationMute(trackID, muted)
 	}
 
-	track := p.UpTrackManager.SetPublishedTrackMuted(trackID, muted)
+	track, changed := p.UpTrackManager.SetPublishedTrackMuted(trackID, muted)
 	var trackInfo *livekit.TrackInfo
 	if track != nil {
 		trackInfo = track.ToProto()
 	}
 
-	isPending := false
+	// update mute status in any pending/queued add track requests too
 	p.pendingTracksLock.RLock()
 	for _, pti := range p.pendingTracks {
 		for i, ti := range pti.trackInfos {
 			if livekit.TrackID(ti.Sid) == trackID {
 				ti = utils.CloneProto(ti)
+				changed = changed || ti.Muted != muted
 				ti.Muted = muted
 				pti.trackInfos[i] = ti
-				isPending = true
-				trackInfo = ti
+				if trackInfo == nil {
+					trackInfo = ti
+				}
 			}
 		}
 	}
 	p.pendingTracksLock.RUnlock()
 
-	if trackInfo != nil {
+	if trackInfo != nil && changed {
 		if muted {
 			p.params.Telemetry.TrackMuted(context.Background(), p.ID(), trackInfo)
 		} else {
 			p.params.Telemetry.TrackUnmuted(context.Background(), p.ID(), trackInfo)
 		}
-	}
-
-	if !isPending && track == nil {
-		p.pubLogger.Debugw("could not locate track", "trackID", trackID)
 	}
 
 	return trackInfo
@@ -2570,6 +2608,7 @@ func (p *ParticipantImpl) addMediaTrack(signalCid string, sdpCid string, ti *liv
 		OnRTCP:                p.postRtcp,
 		ForwardStats:          p.params.ForwardStats,
 		OnTrackEverSubscribed: p.sendTrackHasBeenSubscribed,
+		ShouldRegressCodec:    p.params.ShouldRegressCodec,
 	}, ti)
 
 	mt.OnSubscribedMaxQualityChange(p.onSubscribedMaxQualityChange)
@@ -2998,12 +3037,20 @@ func (p *ParticipantImpl) SupportsTransceiverReuse() bool {
 	return p.ProtocolVersion().SupportsTransceiverReuse() && !p.SupportsSyncStreamID()
 }
 
-func (p *ParticipantImpl) SendDataPacket(kind livekit.DataPacket_Kind, encoded []byte) error {
+func (p *ParticipantImpl) SendDataMessage(kind livekit.DataPacket_Kind, data []byte) error {
 	if p.State() != livekit.ParticipantInfo_ACTIVE {
 		return ErrDataChannelUnavailable
 	}
 
-	return p.TransportManager.SendDataPacket(kind, encoded)
+	return p.TransportManager.SendDataMessage(kind, data)
+}
+
+func (p *ParticipantImpl) SendDataMessageUnlabeled(data []byte) error {
+	if p.State() != livekit.ParticipantInfo_ACTIVE {
+		return ErrDataChannelUnavailable
+	}
+
+	return p.TransportManager.SendDataMessageUnlabeled(data)
 }
 
 func (p *ParticipantImpl) onDataSendError(err error) {
