@@ -139,8 +139,7 @@ func InitializeServer(conf *config.Config, currentNode routing.LocalNode) (*Live
 	timedVersionGenerator := utils.NewDefaultTimedVersionGenerator()
 	turnAuthHandler := NewTURNAuthHandler(keyProvider)
 	forwardStats := createForwardStats(conf)
-	roomManager, err := NewLocalRoomManager(conf, objectStore, currentNode, router, roomAllocator, telemetryService, clientConfigurationManager, client, 
-		agentStore, rtcEgressLauncher, timedVersionGenerator, turnAuthHandler, messageBus, forwardStats)
+	roomManager, err := NewLocalRoomManager(conf, objectStore, currentNode, router, roomAllocator, telemetryService, clientConfigurationManager, client, agentStore, rtcEgressLauncher, timedVersionGenerator, turnAuthHandler, messageBus, forwardStats)
 	if err != nil {
 		return nil, err
 	}
@@ -230,16 +229,16 @@ func createKeyProvider(conf *config.Config) (auth.KeyProvider, error) {
 // createWebhookNotifier 创建Webhook通知器
 // 创建Webhook通知器，如果配置了Webhook，则创建Webhook通知器，否则返回nil
 func createWebhookNotifier(conf *config.Config, provider auth.KeyProvider) (webhook.QueuedNotifier, error) {
-	hook := conf.WebHook
-	if len(hook.URLs) == 0 {
+	wc := conf.WebHook
+	if len(wc.URLs) == 0 {
 		return nil, nil
 	}
-	secret := provider.GetSecret(hook.APIKey)
+	secret := provider.GetSecret(wc.APIKey)
 	if secret == "" {
 		return nil, ErrWebHookMissingAPIKey
 	}
 
-	return webhook.NewDefaultNotifier(hook.APIKey, secret, hook.URLs), nil
+	return webhook.NewDefaultNotifier(wc.APIKey, secret, wc.URLs), nil
 }
 
 // createRedisClient 获取Redis客户端,

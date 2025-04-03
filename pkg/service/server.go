@@ -115,8 +115,7 @@ func NewLivekitServer(
 				return true // 允许所有来源
 			},
 			AllowedHeaders: []string{"*"}, // 允许所有请求头
-			// allow preflight to be cached for a day
-			MaxAge: 86400, // preflight 请求缓存时间为1天
+			MaxAge:         86400,         // preflight 请求缓存时间为1天
 		}),
 		negroni.HandlerFunc(RemoveDoubleSlashes), // 移除 URL 中的重复斜杠
 	}

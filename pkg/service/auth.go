@@ -40,40 +40,52 @@ type grantsValue struct {
 }
 
 var (
-	ErrPermissionDenied          = errors.New("permissions denied")
-	ErrMissingAuthorization      = errors.New("invalid authorization header. Must start with " + bearerPrefix)
+	// 权限拒绝错误
+	ErrPermissionDenied = errors.New("permissions denied")
+	// 缺少授权头错误
+	ErrMissingAuthorization = errors.New("invalid authorization header. Must start with " + bearerPrefix)
+	// 无效授权令牌错误
 	ErrInvalidAuthorizationToken = errors.New("invalid authorization token")
-	ErrInvalidAPIKey             = errors.New("invalid API key")
+	// 无效API密钥错误
+	ErrInvalidAPIKey = errors.New("invalid API key")
 )
 
-// authentication middleware
+// API密钥认证中间件
 type APIKeyAuthMiddleware struct {
 	provider auth.KeyProvider
 }
 
+// 创建API密钥认证中间件
 func NewAPIKeyAuthMiddleware(provider auth.KeyProvider) *APIKeyAuthMiddleware {
 	return &APIKeyAuthMiddleware{
 		provider: provider,
 	}
 }
 
+// 处理API密钥认证请求
 func (m *APIKeyAuthMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+	// 如果请求路径是/rtc/validate，则设置CORS头
 	if r.URL != nil && r.URL.Path == "/rtc/validate" {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	}
 
+	// 获取授权头：Authorization键的值
 	authHeader := r.Header.Get(authorizationHeader)
-	var authToken string
 
+	// 如果授权头不为空，则获取授权令牌
+	var authToken string
 	if authHeader != "" {
+		// 如果授权头不以Bearer开头，则返回401错误
 		if !strings.HasPrefix(authHeader, bearerPrefix) {
 			handleError(w, r, http.StatusUnauthorized, ErrMissingAuthorization)
 			return
 		}
 
+		// 获取授权令牌
 		authToken = authHeader[len(bearerPrefix):]
 	} else {
 		// attempt to find from request header
+		// 如果请求头中没有Authorization键，则从请求参数中获取access_token
 		authToken = r.FormValue(accessTokenParam)
 	}
 
@@ -90,6 +102,7 @@ func (m *APIKeyAuthMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request,
 			return
 		}
 
+		// 验证令牌，返回授权信息
 		grants, err := v.Verify(secret)
 		if err != nil {
 			handleError(w, r, http.StatusUnauthorized, errors.New("invalid token: "+authToken+", error: "+err.Error()))
