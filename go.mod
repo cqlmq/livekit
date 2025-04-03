@@ -61,7 +61,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-// replace github.com/livekit/protocol => github.com/cqlmq/livekit-protocol v0.0.0-20250307181533-e586a23f4e56
 replace github.com/livekit/protocol => ../livekit-protocol
 replace github.com/livekit/psrpc => ../livekit-psrpc
 replace github.com/livekit/mediatransportutil => ../livekit-mediatransportutil
