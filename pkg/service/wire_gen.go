@@ -17,14 +17,14 @@ import (
 	"github.com/livekit/protocol/auth"
 	"github.com/livekit/protocol/livekit"
 	"github.com/livekit/protocol/logger"
-	"github.com/livekit/protocol/redis"
+	redis2 "github.com/livekit/protocol/redis"
 	"github.com/livekit/protocol/rpc"
 	"github.com/livekit/protocol/utils"
 	"github.com/livekit/protocol/webhook"
 	"github.com/livekit/psrpc"
 	"github.com/pion/turn/v4"
 	"github.com/pkg/errors"
-	redis2 "github.com/redis/go-redis/v9"
+	"github.com/redis/go-redis/v9"
 	"gopkg.in/yaml.v3"
 	"os"
 )
@@ -35,16 +35,10 @@ import (
 
 // Injectors from wire.go:
 
-// InitializeServer 初始化Livekit服务器
-// changed by limengqiu 2025-03-16 尝试修改redis的参数方式，测试通过
-// 采用：wire ./pkg/service 重新生成wire_gen.go文件
-// 心得体会：
-// 1、函数需要的参数，必需在wire.Build()中添加，不能使用对象的成员变量
 func InitializeServer(conf *config.Config, currentNode routing.LocalNode) (*LivekitServer, error) {
 	limitConfig := getLimitConf(conf)
 	apiConfig := config.DefaultAPIConfig()
-	redisConfig := getRedisConfig(conf)
-	universalClient, err := createRedisClient(redisConfig)
+	universalClient, err := createRedisClient(conf)
 	if err != nil {
 		return nil, err
 	}
@@ -160,11 +154,8 @@ func InitializeServer(conf *config.Config, currentNode routing.LocalNode) (*Live
 	return livekitServer, nil
 }
 
-// InitializeRouter 初始化路由
-// 使用于listNodes函数
 func InitializeRouter(conf *config.Config, currentNode routing.LocalNode) (routing.Router, error) {
-	redisConfig := getRedisConfig(conf)
-	universalClient, err := createRedisClient(redisConfig)
+	universalClient, err := createRedisClient(conf)
 	if err != nil {
 		return nil, err
 	}
@@ -193,12 +184,10 @@ func InitializeRouter(conf *config.Config, currentNode routing.LocalNode) (routi
 
 // wire.go:
 
-// getNodeID 获取节点ID
 func getNodeID(currentNode routing.LocalNode) livekit.NodeID {
 	return currentNode.NodeID()
 }
 
-// createKeyProvider 创建密钥提供者
 func createKeyProvider(conf *config.Config) (auth.KeyProvider, error) {
 
 	if conf.KeyFile != "" {
@@ -228,8 +217,6 @@ func createKeyProvider(conf *config.Config) (auth.KeyProvider, error) {
 	return auth.NewFileBasedKeyProviderFromMap(conf.Keys), nil
 }
 
-// createWebhookNotifier 创建Webhook通知器
-// 创建Webhook通知器，如果配置了Webhook，则创建Webhook通知器，否则返回nil
 func createWebhookNotifier(conf *config.Config, provider auth.KeyProvider) (webhook.QueuedNotifier, error) {
 	wc := conf.WebHook
 	if len(wc.URLs) == 0 {
@@ -243,26 +230,21 @@ func createWebhookNotifier(conf *config.Config, provider auth.KeyProvider) (webh
 	return webhook.NewDefaultNotifier(wc, secret), nil
 }
 
-// createRedisClient 获取Redis客户端,
-func createRedisClient(conf *redis.RedisConfig) (redis2.UniversalClient, error) {
-	if !conf.IsConfigured() {
-		logger.Debugw("redis not configured, using local store")
+func createRedisClient(conf *config.Config) (redis.UniversalClient, error) {
+	if !conf.Redis.IsConfigured() {
 		return nil, nil
 	}
-	return redis.GetRedisClient(conf)
+	return redis2.GetRedisClient(&conf.Redis)
 }
 
-// createStore 创建存储,
-func createStore(rc redis2.UniversalClient) ObjectStore {
+func createStore(rc redis.UniversalClient) ObjectStore {
 	if rc != nil {
 		return NewRedisStore(rc)
 	}
 	return NewLocalStore()
 }
 
-// getMessageBus 获取消息总线
-// 另一个项目了解总线的原理与功能
-func getMessageBus(rc redis2.UniversalClient) psrpc.MessageBus {
+func getMessageBus(rc redis.UniversalClient) psrpc.MessageBus {
 	if rc == nil {
 		return psrpc.NewLocalMessageBus()
 	}
@@ -315,33 +297,28 @@ func getSIPConfig(conf *config.Config) *config.SIPConfig {
 	return &conf.SIP
 }
 
-func getRedisConfig(conf *config.Config) *redis.RedisConfig {
-	return &conf.Redis
-}
-
 func createClientConfiguration() clientconfiguration.ClientConfigurationManager {
 	return clientconfiguration.NewStaticClientConfigurationManager(clientconfiguration.StaticConfigurations)
 }
 
-func getLimitConf(conf *config.Config) config.LimitConfig {
-	return conf.GetLimitConfig()
+func getLimitConf(config2 *config.Config) config.LimitConfig {
+	return config2.Limit
 }
 
-func getRoomConfig(conf *config.Config) config.RoomConfig {
-	return conf.Room
+func getRoomConfig(config2 *config.Config) config.RoomConfig {
+	return config2.Room
 }
 
-// getSignalRelayConfig 获取信号Relay配置
-func getSignalRelayConfig(conf *config.Config) config.SignalRelayConfig {
-	return conf.SignalRelay
+func getSignalRelayConfig(config2 *config.Config) config.SignalRelayConfig {
+	return config2.SignalRelay
 }
 
-func getPSRPCConfig(conf *config.Config) rpc.PSRPCConfig {
-	return conf.PSRPC
+func getPSRPCConfig(config2 *config.Config) rpc.PSRPCConfig {
+	return config2.PSRPC
 }
 
-func getPSRPCClientParams(conf rpc.PSRPCConfig, bus psrpc.MessageBus) rpc.ClientParams {
-	return rpc.NewClientParams(conf, bus, logger.GetLogger(), rpc.PSRPCMetricsObserver{})
+func getPSRPCClientParams(config2 rpc.PSRPCConfig, bus psrpc.MessageBus) rpc.ClientParams {
+	return rpc.NewClientParams(config2, bus, logger.GetLogger(), rpc.PSRPCMetricsObserver{})
 }
 
 func createForwardStats(conf *config.Config) *sfu.ForwardStats {

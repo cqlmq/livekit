@@ -166,9 +166,10 @@ func (s *RedisStore) ListSIPTrunk(ctx context.Context, req *livekit.ListSIPTrunk
 	return &livekit.ListSIPTrunkResponse{Items: items}, nil
 }
 
+// 列出SIP入站中继
 func (s *RedisStore) ListSIPInboundTrunk(ctx context.Context, req *livekit.ListSIPInboundTrunkRequest) (*livekit.ListSIPInboundTrunkResponse, error) {
-	var items []*livekit.SIPInboundTrunkInfo
-	in, err := s.listSIPInboundTrunk(ctx, req.Page)
+	var items []*livekit.SIPInboundTrunkInfo        // 存储SIP入站中继信息
+	in, err := s.listSIPInboundTrunk(ctx, req.Page) // 从Redis中获取SIP入站中继信息
 	if err != nil {
 		return nil, err
 	}

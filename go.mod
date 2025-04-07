@@ -14,6 +14,7 @@ require (
 	github.com/frostbyte73/core v0.1.1
 	github.com/gammazero/deque v1.0.0
 	github.com/gammazero/workerpool v1.1.3
+	github.com/goccy/go-json v0.10.5
 	github.com/google/uuid v1.6.0
 	github.com/google/wire v0.6.0
 	github.com/gorilla/websocket v1.5.3
@@ -62,7 +63,9 @@ require (
 )
 
 replace github.com/livekit/protocol => ../livekit-protocol
+
 replace github.com/livekit/psrpc => ../livekit-psrpc
+
 replace github.com/livekit/mediatransportutil => ../livekit-mediatransportutil
 
 require (

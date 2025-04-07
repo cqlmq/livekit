@@ -1005,7 +1005,7 @@ func redisLoadBatch[T any, P protoMsg[T]](ctx context.Context, s *RedisStore, ke
 		}
 		return list, nil
 	}
-	// Keep zero values where ID was not found.
+	// Keep zero values where ID was not found. // 保持ID未找到时的零值
 	list := make([]P, len(ids))
 	for i := range ids {
 		if d, ok := data[i].(string); ok {
@@ -1035,6 +1035,7 @@ type protoEntity[T any] interface {
 	ID() string
 }
 
+// 迭代分页查询
 func redisIterPage[T any, P protoEntity[T]](ctx context.Context, s *RedisStore, key string, page *livekit.Pagination) ([]P, error) {
 	if page == nil {
 		return redisLoadAll[T, P](ctx, s, key)

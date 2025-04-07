@@ -64,8 +64,8 @@ func (s *IOInfoService) matchSIPDispatchRule(ctx context.Context, trunk *livekit
 	if trunk != nil {
 		trunkID = trunk.SipTrunkId
 	}
-	// Trunk can still be nil here in case none matched or were defined.
-	// This is still fine, but only in case we'll match exactly one wildcard dispatch rule.
+	// Trunk can still be nil here in case none matched or were defined. // 这里trunk可以为nil，如果没有任何匹配或者定义
+	// This is still fine, but only in case we'll match exactly one wildcard dispatch rule. // 这仍然是可行的，但只有在匹配一个通配符调度规则时才有效
 	it := s.SelectSIPDispatchRule(ctx, trunkID)
 	return sip.MatchDispatchRuleIter(trunk, it, req)
 }
@@ -140,6 +140,10 @@ func (s *IOInfoService) GetSIPTrunkAuthentication(ctx context.Context, req *rpc.
 		log.Errorw("cannot parse source IP", err)
 		return nil, twirp.WrapError(twirp.NewError(twirp.InvalidArgument, err.Error()), err)
 	}
+
+	// msg, _ := json.MarshalIndent(call, "", "  ")
+	// fmt.Println("GetSIPTrunkAuthentication: ", string(msg))
+
 	trunk, err := s.matchSIPTrunk(ctx, "", call)
 	if err != nil {
 		return nil, err

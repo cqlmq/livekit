@@ -283,7 +283,7 @@ func getConfig(c *cli.Context) (*config.Config, error) {
 
 	// 初始化日志配置
 	// Initialize logger configuration
-	// config.InitLoggerFromConfig(&conf.Logging)
+	config.InitLoggerFromConfig(&conf.Logging)
 
 	// 开发模式特殊处理
 	// Special handling for development mode
