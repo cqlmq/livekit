@@ -445,13 +445,16 @@ func (r *Room) Join(participant types.LocalParticipant, requestSource routing.Me
 		r.joinedAt.Store(time.Now().Unix())
 	}
 
-	participant.OnStateChange(func(p types.LocalParticipant, state livekit.ParticipantInfo_State) {
+	var onStateChangeMu sync.Mutex
+	participant.OnStateChange(func(p types.LocalParticipant) {
 		if r.onParticipantChanged != nil {
 			r.onParticipantChanged(p)
 		}
 		r.broadcastParticipantState(p, broadcastOptions{skipSource: true})
 
-		if state == livekit.ParticipantInfo_ACTIVE {
+		onStateChangeMu.Lock()
+		defer onStateChangeMu.Unlock()
+		if state := p.State(); state == livekit.ParticipantInfo_ACTIVE {
 			// subscribe participant to existing published tracks
 			r.subscribeToExistingTracks(p)
 
@@ -478,6 +481,9 @@ func (r *Room) Join(participant types.LocalParticipant, requestSource routing.Me
 			// participant should already be closed and have a close reason, so NONE is fine here
 			go r.RemoveParticipant(p.Identity(), p.ID(), types.ParticipantCloseReasonNone)
 		}
+	})
+	participant.OnSubscriberReady(func(p types.LocalParticipant) {
+		r.subscribeToExistingTracks(p)
 	})
 	// it's important to set this before connection, we don't want to miss out on any published tracks
 	participant.OnTrackPublished(r.onTrackPublished)
@@ -731,6 +737,7 @@ func (r *Room) RemoveParticipant(identity livekit.ParticipantIdentity, pID livek
 	p.OnTrackPublished(nil)
 	p.OnTrackUnpublished(nil)
 	p.OnStateChange(nil)
+	p.OnSubscriberReady(nil)
 	p.OnParticipantUpdate(nil)
 	p.OnDataPacket(nil)
 	p.OnDataMessage(nil)

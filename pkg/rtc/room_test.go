@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/livekit/protocol/auth/authfakes"
 	"github.com/livekit/protocol/livekit"
 	"github.com/livekit/protocol/utils"
 	"github.com/livekit/protocol/webhook"
@@ -111,7 +112,8 @@ func TestRoomJoin(t *testing.T) {
 
 		stateChangeCB := p.OnStateChangeArgsForCall(0)
 		require.NotNil(t, stateChangeCB)
-		stateChangeCB(p, livekit.ParticipantInfo_ACTIVE)
+		p.StateReturns(livekit.ParticipantInfo_ACTIVE)
+		stateChangeCB(p)
 
 		// it should become a subscriber when connectivity changes
 		numTracks := 0
@@ -747,7 +749,8 @@ func TestHiddenParticipants(t *testing.T) {
 
 		stateChangeCB := hidden.OnStateChangeArgsForCall(0)
 		require.NotNil(t, stateChangeCB)
-		stateChangeCB(hidden, livekit.ParticipantInfo_ACTIVE)
+		hidden.StateReturns(livekit.ParticipantInfo_ACTIVE)
+		stateChangeCB(hidden)
 
 		require.Eventually(t, func() bool { return hidden.SubscribeToTrackCallCount() == 2 }, 5*time.Second, 10*time.Millisecond)
 	})
@@ -795,6 +798,12 @@ type testRoomOpts struct {
 }
 
 func newRoomWithParticipants(t *testing.T, opts testRoomOpts) *Room {
+	kp := &authfakes.FakeKeyProvider{}
+	kp.GetSecretReturns("testkey")
+
+	n, err := webhook.NewDefaultNotifier(webhook.DefaultWebHookConfig, kp)
+	require.NoError(t, err)
+
 	rm := NewRoom(
 		&livekit.Room{Name: "room"},
 		nil,
@@ -816,7 +825,7 @@ func newRoomWithParticipants(t *testing.T, opts testRoomOpts) *Room {
 			NodeId:   "testnode",
 			Region:   "testregion",
 		},
-		telemetry.NewTelemetryService(webhook.NewDefaultNotifier(webhook.DefaultWebHookConfig, ""), &telemetryfakes.FakeAnalyticsService{}),
+		telemetry.NewTelemetryService(n, &telemetryfakes.FakeAnalyticsService{}),
 		nil, nil, nil,
 	)
 	for i := 0; i < opts.num+opts.numHidden; i++ {
